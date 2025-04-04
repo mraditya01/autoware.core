@@ -14,8 +14,6 @@
 
 #include <autoware_lanelet2_utils/stop_line.hpp>
 
-#include <boost/geometry/algorithms/intersection.hpp>
-
 #include <set>
 #include <string>
 #include <utility>
