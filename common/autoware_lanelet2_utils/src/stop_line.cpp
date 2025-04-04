@@ -84,9 +84,8 @@ universe_utils::LineString2d get_stop_line_geometry2d(
     stop_line[0], stop_line[1], extend_length);
 }
 
-template <typename PathT>
 std::optional<LineString2d> get_stop_line_geometry2d(
-  const PathT & path, const lanelet::Optional<lanelet::ConstLineString3d> & stop_line,
+  const PathWithLaneId & path, const lanelet::Optional<lanelet::ConstLineString3d> & stop_line,
   const lanelet::ConstPolygons3d & no_stopping_areas, const double stop_line_margin,
   const double stop_line_extend_length, const double vehicle_width)
 {
@@ -156,9 +155,8 @@ std::optional<lanelet::ConstLineString3d> get_stop_line_from_map(
   return stop_line.front();
 }
 
-template <typename PathT>
 std::optional<size_t> get_stop_line_index_from_map(
-  const PathT & path, const std::pair<size_t, size_t> lane_interval,
+  const PathWithLaneId & path, const std::pair<size_t, size_t> lane_interval,
   lanelet::ConstLanelet assigned_lanelet, const lanelet::LaneletMapPtr & lanelet_map_ptr,
   double stop_line_extend_length, double nearest_dist_threshold, double nearest_yaw_threshold)
 {
