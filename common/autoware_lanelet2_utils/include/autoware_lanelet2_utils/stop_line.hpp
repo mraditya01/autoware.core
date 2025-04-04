@@ -60,7 +60,8 @@ std::vector<lanelet::ConstLineString3d> get_stop_lines_from_stop_sign(
   const lanelet::ConstLanelets & lanelets, const std::string & stop_sign_id);
 
 /**
- * @brief Get particular stop line regulatory element from road_marking, optionally checking matching ID
+ * @brief Get particular stop line regulatory element from road_marking, optionally checking
+ * matching ID
  * @param[in] lane_id lanelet ID
  * @param[in] lanelet_map_ptr lanelet map
  * @param[in] attribute_name optional attribute to match
