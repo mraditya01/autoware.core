@@ -23,7 +23,6 @@
 #include <vector>
 
 // Autoware & lanelet2 includes
-#include <autoware/universe_utils/geometry/geometry.hpp>
 #include <autoware_lanelet2_extension/regulatory_elements/detection_area.hpp>
 #include <autoware_lanelet2_extension/regulatory_elements/no_stopping_area.hpp>
 #include <autoware_lanelet2_extension/regulatory_elements/road_marking.hpp>
@@ -34,8 +33,6 @@
 
 namespace autoware::lanelet2_utils
 {
-using Point2d = autoware::universe_utils::Point2d;
-using LineString2d = autoware::universe_utils::Line2d;
 /**
  * @brief Extract stop lines associated with a stop sign ID from lanelets
  *
