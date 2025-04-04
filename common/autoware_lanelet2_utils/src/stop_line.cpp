@@ -23,13 +23,6 @@
 
 namespace autoware::lanelet2_utils
 {
-universe_utils::LineString2d get_stop_line_geometry2d(
-  const lanelet::ConstLineString3d & stop_line, const double extend_length)
-{
-  return autoware::behavior_velocity_planner::planning_utils::extendLine(
-    stop_line[0], stop_line[1], extend_length);
-}
-
 std::vector<lanelet::ConstLineString3d> get_stop_lines_from_stop_sign(
   const lanelet::ConstLanelets & lanelets, const std::string & stop_sign_id)
 {

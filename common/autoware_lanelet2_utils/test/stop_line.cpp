@@ -28,11 +28,6 @@
 #include <string>
 #include <vector>
 
-// Message definitions
-#include <autoware_planning_msgs/msg/path_point.hpp>
-#include <tier4_planning_msgs/msg/path_point_with_lane_id.hpp>
-#include <tier4_planning_msgs/msg/path_with_lane_id.hpp>
-
 namespace fs = std::filesystem;
 
 namespace autoware
@@ -60,27 +55,7 @@ protected:
       load_mgrs_coordinate_map<lanelet::LaneletMapPtr>(regulatory_elements_map_path.string());
   }
 };
-
-// test 1: get_stop_line_geometry2d using a regulatory element line.
-TEST(StopLineGeometryTest, GetStopLineGeometry2dFromRegElem)
-{
-  using autoware::lanelet2_utils::get_stop_line_geometry2d;
-
-  lanelet::LineString3d reg_elem_line(
-    lanelet::InvalId,
-    {lanelet::Point3d(lanelet::InvalId, 0.0, 0.0), lanelet::Point3d(lanelet::InvalId, 0.0, 1.0)});
-
-  const double extend_length = 1.0;
-  auto extended_line = lanelet2_utils::get_stop_line_geometry2d(reg_elem_line, extend_length);
-
-  ASSERT_EQ(extended_line.size(), 2UL);
-  EXPECT_DOUBLE_EQ(extended_line[0].x(), reg_elem_line[0].y());
-  EXPECT_DOUBLE_EQ(extended_line[0].y(), reg_elem_line[0].y() - extend_length);
-  EXPECT_DOUBLE_EQ(extended_line[1].x(), reg_elem_line[1].x());
-  EXPECT_DOUBLE_EQ(extended_line[1].y(), reg_elem_line[1].y() + extend_length);
-}
-
-// test 2: get_stop_line_from_map retrieves the stop line for a specific lane (ID 1993) from the
+// test 1: get_stop_line_from_map retrieves the stop line for a specific lane (ID 1993) from the
 // map, then verifies that the stop line exists and has the expected ID.
 TEST_F(TestWithIntersectionCrossingMap, GetStopLineFromMap)
 {
@@ -92,7 +67,7 @@ TEST_F(TestWithIntersectionCrossingMap, GetStopLineFromMap)
   ASSERT_EQ(stopline_opt->id(), 1993) << "Wrong id";
 }
 
-// test 3: get_stop_line_from_stop_sign
+// test 2: get_stop_line_from_stop_sign
 TEST_F(TestWithIntersectionCrossingMap, GetStopLinesFromStopSign)
 {
   const lanelet::ConstLanelets lanelets(
@@ -123,7 +98,7 @@ TEST_F(TestWithIntersectionCrossingMap, GetStopLinesFromStopSign)
                               << " was not found.";
 }
 
-// test 4: get_stop_lines_from_no_stopping_area
+// test 3: get_stop_lines_from_no_stopping_area
 TEST_F(TestWithIntersectionCrossingMap, GetStopLinesFromNoStoppingArea)
 {
   const lanelet::ConstLanelets lanelets(
@@ -153,7 +128,7 @@ TEST_F(TestWithIntersectionCrossingMap, GetStopLinesFromNoStoppingArea)
                               << " was not found.";
 }
 
-// test 5: get_stop_lines_from_detection_area
+// test 4: get_stop_lines_from_detection_area
 TEST_F(TestWithIntersectionCrossingMap, GetStopLinesFromDetectionArea)
 {
   const lanelet::ConstLanelets lanelets(
