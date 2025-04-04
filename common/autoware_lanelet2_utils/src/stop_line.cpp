@@ -103,8 +103,8 @@ std::vector<lanelet::ConstLineString3d> get_stop_lines_from_no_stopping_area(
     if (!no_stopping_elems.empty()) {
       for (const auto & no_stopping_area : no_stopping_elems) {
         if (auto opt_stop_line = no_stopping_area->stopLine()) {
-          lanelet::ConstLineString3d stopLine = *opt_stop_line;
-          auto id = stopLine.id();
+          const lanelet::ConstLineString3d stopLine = *opt_stop_line;
+          const lanelet::Id id = stopLine.id();
           if (checklist.find(id) == checklist.end()) {
             checklist.insert(id);
             stopLines.push_back(stopLine);
