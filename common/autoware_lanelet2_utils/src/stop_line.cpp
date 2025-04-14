@@ -49,12 +49,9 @@ std::optional<lanelet::ConstLineString3d> get_stop_line_from_deprecated_crosswal
   return stop_line.front();
 }
 
-std::vector<lanelet::ConstLineString3d> get_stop_lines_from_no_stopping_area(
-  const lanelet::ConstLanelets & lanelets)
+std::optional<lanelet::ConstLineString3d> get_stop_lines_from_no_stopping_area(
+  const lanelet::ConstLanelets & lanelets, const std::optional<lanelet::Id> & target_id)
 {
-  std::vector<lanelet::ConstLineString3d> stopLines;
-  std::set<lanelet::Id> checklist;
-
   for (const auto & ll : lanelets) {
     std::vector<std::shared_ptr<const lanelet::autoware::NoStoppingArea>> no_stopping_elems =
       ll.regulatoryElementsAs<lanelet::autoware::NoStoppingArea>();
@@ -63,30 +60,29 @@ std::vector<lanelet::ConstLineString3d> get_stop_lines_from_no_stopping_area(
       for (const auto & no_stopping_area : no_stopping_elems) {
         if (auto opt_stop_line = no_stopping_area->stopLine()) {
           const lanelet::ConstLineString3d stopLine = *opt_stop_line;
-          const lanelet::Id id = stopLine.id();
-          if (checklist.find(id) == checklist.end()) {
-            checklist.insert(id);
-            stopLines.push_back(stopLine);
+          if (target_id.has_value()) {
+            if (stopLine.id() == target_id.value()) {
+              return stopLine;
+            }
+          } else {
+            return stopLine;
           }
         }
       }
     }
   }
-  return stopLines;
+  return std::nullopt;
 }
 
-std::vector<lanelet::ConstLineString3d> get_stop_lines_from_no_stopping_area(
-  const lanelet::ConstLanelet & lanelet)
+std::optional<lanelet::ConstLineString3d> get_stop_lines_from_no_stopping_area(
+  const lanelet::ConstLanelet & lanelet, const std::optional<lanelet::Id> & target_id)
 {
-  return get_stop_lines_from_no_stopping_area(lanelet::ConstLanelets{lanelet});
+  return get_stop_lines_from_no_stopping_area(lanelet::ConstLanelets{lanelet}, target_id);
 }
 
-std::vector<lanelet::ConstLineString3d> get_stop_lines_from_detection_area(
-  const lanelet::ConstLanelets & lanelets)
+std::optional<lanelet::ConstLineString3d> get_stop_lines_from_detection_area(
+  const lanelet::ConstLanelets & lanelets, const std::optional<lanelet::Id> & target_id)
 {
-  std::vector<lanelet::ConstLineString3d> stopLines;
-  std::set<lanelet::Id> checklist;
-
   for (const auto & ll : lanelets) {
     std::vector<std::shared_ptr<const lanelet::autoware::DetectionArea>> detection_areas =
       ll.regulatoryElementsAs<lanelet::autoware::DetectionArea>();
@@ -94,55 +90,90 @@ std::vector<lanelet::ConstLineString3d> get_stop_lines_from_detection_area(
     if (!detection_areas.empty()) {
       for (const auto & detection_area : detection_areas) {
         const lanelet::ConstLineString3d stopLine = detection_area->stopLine();
-        const lanelet::Id id = stopLine.id();
-        if (checklist.find(id) == checklist.end()) {
-          checklist.insert(id);
-          stopLines.push_back(stopLine);
+        if (target_id.has_value()) {
+          if (stopLine.id() == target_id.value()) {
+            return stopLine;
+          }
+        } else {
+          return stopLine;
         }
       }
     }
   }
 
-  return stopLines;
+  return std::nullopt;
 }
 
-std::vector<lanelet::ConstLineString3d> get_stop_lines_from_detection_area(
-  const lanelet::ConstLanelet & lanelet)
+std::optional<lanelet::ConstLineString3d> get_stop_lines_from_detection_area(
+  const lanelet::ConstLanelet & lanelet, const std::optional<lanelet::Id> & target_id)
 {
-  return get_stop_lines_from_detection_area(lanelet::ConstLanelets{lanelet});
+  return get_stop_lines_from_detection_area(lanelet::ConstLanelets{lanelet}, target_id);
 }
 
-std::vector<lanelet::ConstLineString3d> get_stop_line_from_intersection_marking(
-  const lanelet::ConstLanelets & lanelets)
+std::optional<lanelet::ConstLineString3d> get_stop_line_from_intersection_marking(
+  const lanelet::ConstLanelets & lanelets, const std::optional<lanelet::Id> & target_id)
 {
-  std::vector<lanelet::ConstLineString3d> stopLines;
-  std::set<lanelet::Id> checklist;
-
   for (const auto & ll : lanelets) {
     std::vector<std::shared_ptr<const lanelet::autoware::RoadMarking>> road_markings =
       ll.regulatoryElementsAs<lanelet::autoware::RoadMarking>();
 
-    if (!road_markings.empty()) {
-      for (const auto & road_marking : road_markings) {
-        const std::string type =
-          road_marking->roadMarking().attributeOr(lanelet::AttributeName::Type, "none");
-        const lanelet::Id id = road_marking->id();
-        if (
-          checklist.find(id) == checklist.end() &&
-          type == lanelet::AttributeValueString::StopLine) {
-          checklist.insert(id);
-          stopLines.push_back(road_marking->roadMarking());
+      if (!road_markings.empty()) {
+        for (const auto & road_marking : road_markings) {
+          const std::string type =
+            road_marking->roadMarking().attributeOr(lanelet::AttributeName::Type, "none");
+            lanelet::ConstLineString3d stop_line = road_marking->roadMarking();
+          if (target_id.has_value()) {
+            if (stop_line.id() == target_id.value()) {
+              return stop_line;
+            }
+          } else {
+            return stop_line;
+          }
+        }
+      }
+    }
+  return std::nullopt;
+}
+
+std::optional<lanelet::ConstLineString3d> get_stop_line_from_intersection_marking(
+  const lanelet::ConstLanelet & lanelet, const std::optional<lanelet::Id> & target_id)
+{
+  return get_stop_line_from_intersection_marking(lanelet::ConstLanelets{lanelet}, target_id);
+}
+
+std::optional<lanelet::ConstLineString3d> get_stop_lines_from_stop_sign(
+  const lanelet::ConstLanelets & lanelets, const std::optional<lanelet::Id> & target_id)
+{
+  for (const auto & ll : lanelets) {
+    std::vector<std::shared_ptr<const lanelet::TrafficSign>> traffic_sign_reg_elems =
+      ll.regulatoryElementsAs<const lanelet::TrafficSign>();
+
+    if (!traffic_sign_reg_elems.empty()) {
+      for (const auto & ts : traffic_sign_reg_elems) {
+        if (ts->type() != "stop_sign") {
+          continue;
+        }
+        lanelet::ConstLineStrings3d traffic_sign_stoplines = ts->refLines();
+        if (!traffic_sign_stoplines.empty()) {
+          if (target_id.has_value()) {
+            if (traffic_sign_stoplines.front().id() == target_id) {
+              return traffic_sign_stoplines.front();
+            }
+          } else {
+            return traffic_sign_stoplines.front();
+          }  
         }
       }
     }
   }
-  return stopLines;
+  return std::nullopt;
 }
 
-std::vector<lanelet::ConstLineString3d> get_stop_line_from_intersection_marking(
-  const lanelet::ConstLanelet & lanelet)
+std::optional<lanelet::ConstLineString3d> get_stop_lines_from_stop_sign(
+  const lanelet::ConstLanelet & lanelet, const std::optional<lanelet::Id> & target_id)
 {
-  return get_stop_line_from_intersection_marking(lanelet::ConstLanelets{lanelet});
+  return get_stop_lines_from_stop_sign(lanelet::ConstLanelets{lanelet}, target_id);
 }
 
 }  // namespace autoware::lanelet2_utils
+
