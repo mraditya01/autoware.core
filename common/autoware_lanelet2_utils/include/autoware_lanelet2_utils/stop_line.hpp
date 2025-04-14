@@ -15,6 +15,10 @@
 #ifndef AUTOWARE_LANELET2_UTILS__STOP_LINE_HPP_
 #define AUTOWARE_LANELET2_UTILS__STOP_LINE_HPP_
 
+#include <autoware_lanelet2_extension/regulatory_elements/Forward.hpp>
+
+#include <lanelet2_core/Forward.h>
+
 #include <cmath>
 #include <optional>
 #include <set>
@@ -22,42 +26,21 @@
 #include <utility>
 #include <vector>
 
-// Autoware & lanelet2 includes
-#include <autoware_lanelet2_extension/regulatory_elements/detection_area.hpp>
-#include <autoware_lanelet2_extension/regulatory_elements/no_stopping_area.hpp>
-#include <autoware_lanelet2_extension/regulatory_elements/road_marking.hpp>
-
-#include <lanelet2_core/LaneletMap.h>
-#include <lanelet2_core/geometry/LineString.h>
-#include <lanelet2_core/geometry/Polygon.h>
-
 namespace autoware::lanelet2_utils
 {
-/**
- * @brief Extract stop lines associated with a stop sign ID from lanelets
- *
- * @param[in] lanelets input lanelets
- * @param[in] stop_sign_id traffic sign ID for stop sign
- * @return vector of matching stop lines
- */
-std::vector<lanelet::ConstLineString3d> get_stop_lines_from_stop_sign(
-  const lanelet::ConstLanelets & lanelets, const std::string & stop_sign_id);
-
 /**
  * @brief Get stop line regulatory element from a lanelet, optionally checking matching ID
  *
  * @param[in] lane_id lanelet ID
  * @param[in] lanelet_map_ptr lanelet map
- * @param[in] attribute_name optional attribute to match
  * @param[in] check_id_match whether to check if attribute ID matches lane ID
  * @return stop line if found
  */
-std::optional<lanelet::ConstLineString3d> get_stop_line_from_road_marking(
-  const lanelet::Id lane_id, const lanelet::LaneletMapPtr & lanelet_map_ptr,
-  const std::string & attribute_name, bool check_id_match = true);
+std::optional<lanelet::ConstLineString3d> get_stop_line_from_deprecated_crosswalk(
+  const lanelet::Id lane_id, const lanelet::LaneletMapPtr & lanelet_map_ptr);
 
 /**
- * @brief Get stop line from a no stopping area regulatory element in lanelet, optionally checking
+ * @brief Get stop line from a no stopping area regulatory element in lanelets, optionally checking
  * matching ID
  *
  * @param[in] lanelets input lanelets
@@ -67,14 +50,54 @@ std::vector<lanelet::ConstLineString3d> get_stop_lines_from_no_stopping_area(
   const lanelet::ConstLanelets & lanelets);
 
 /**
- * @brief Get stop line from a detection area regulatory element in lanelet, optionally checking
+ * @brief Get stop line from a no stopping area regulatory element in lanelet, optionally checking
  * matching ID
  *
- * @param[in] lanelets input lanelets
+ * @param[in] lanelet input lanelet
+ * @return vector of stop lines
+ */
+std::vector<lanelet::ConstLineString3d> get_stop_lines_from_no_stopping_area(
+  const lanelet::ConstLanelet & lanelet);
+
+/**
+ * @brief Get stop line from a detection area regulatory element in lanelets, optionally checking
+ * matching ID
+ *
+ * @param[in] lanelet input lanelets
  * @return vector of stop lines
  */
 std::vector<lanelet::ConstLineString3d> get_stop_lines_from_detection_area(
   const lanelet::ConstLanelets & lanelets);
+
+/**
+ * @brief Get stop line from a detection area regulatory element in lanelet, optionally checking
+ * matching ID
+ *
+ * @param[in] lanelet input lanelet
+ * @return vector of stop lines
+ */
+std::vector<lanelet::ConstLineString3d> get_stop_lines_from_detection_area(
+  const lanelet::ConstLanelet & lanelet);
+
+/**
+ * @brief Get stop line from intersection marking regulatory element in lanelets, optionally
+ * checking matching ID
+ *
+ * @param[in] lanelets input lanelets
+ * @return vector of stop lines
+ */
+std::vector<lanelet::ConstLineString3d> get_stop_line_from_intersection_marking(
+  const lanelet::ConstLanelets & lanelets);
+
+/**
+ * @brief Get stop line from intersection marking regulatory element in lanelets, optionally
+ * checking matching ID
+ *
+ * @param[in] lanelet input lanelet
+ * @return vector of stop lines
+ */
+std::vector<lanelet::ConstLineString3d> get_stop_line_from_intersection_marking(
+  const lanelet::ConstLanelet & lanelet);
 
 }  // namespace autoware::lanelet2_utils
 
