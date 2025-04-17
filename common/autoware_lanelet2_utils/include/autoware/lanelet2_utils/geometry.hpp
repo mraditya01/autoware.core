@@ -30,7 +30,7 @@ namespace autoware::lanelet2_utils
  * @param [in] is_forward direction of extrapolation.
  * @return lanelet::ConstPoint3d The extrapolated point.
  */
-lanelet::ConstPoint3d extrapolate_point(
+std::optional<lanelet::ConstPoint3d> extrapolate_point(
   const lanelet::ConstPoint3d & first, const lanelet::ConstPoint3d & second, const double distance,
   const bool is_forward);
 
@@ -43,30 +43,63 @@ lanelet::ConstPoint3d extrapolate_point(
  * @return lanelet::ConstPoint3d The interpolated point.
  */
 
-lanelet::ConstPoint3d interpolate_point(
+std::optional<lanelet::ConstPoint3d> interpolate_point(
   const lanelet::ConstPoint3d & first, const lanelet::ConstPoint3d & second, const double distance,
   const bool from_first);
 
 /**
- * @brief inserts an interpolated point into a linestring at a given distance.
- * @param [in] linestring constant linestring.
+ * @brief find an interpolated point from a linestring at a given distance.
+ * @param [in] linestring input linestring.
  * @param [in] distance desired distance.
  * @param [in] from_first the distance is measured from the beginning (true) or from the end
  * (false).
- * @return lanelet::ConstLineString3d A new linestring with the interpolated point inserted.
+ * @return lanelet::ConstPoint3d; the interpolated point within linestring.
  */
-lanelet::ConstLineString3d interpolate_linestring(
+std::optional<lanelet::ConstPoint3d> interpolate_linestring(
   const lanelet::ConstLineString3d & linestring, const double distance, const bool from_first);
 
 /**
- * @brief extrapolate linestring by distance
+ * @brief find an extrapolated point from a linestring by distance
  * @param [in] linestring input linestring
  * @param [in] distance distance to extrapolate
  * @param [in] is_forward flag if the extrapolation is forward or backward
- * @return lanelet::ConstLineString3d A new linestring with the extrapolated point inserted.
+ * @return lanelet::ConstPoint3d; the extrapolated point.
  */
-lanelet::ConstLineString3d extrapolate_linestring(
+std::optional<lanelet::ConstPoint3d> extrapolate_linestring(
   const lanelet::ConstLineString3d & linestring, const double distance, const bool is_forward);
+
+/**
+ * @brief find an interpolated point from a lanelet at a given distance.
+ * @param [in] lanelet input lanelet.
+ * @param [in] distance desired distance.
+ * @param [in] from_first the distance is measured from the beginning (true) or from the end
+ * (false).
+ * @return lanelet::ConstPoint3d; the interpolated point within lanelet.centerline().
+ */
+std::optional<lanelet::ConstPoint3d> interpolate_lanelet(
+  const lanelet::ConstLanelet & lanelet, const double distance, const bool from_first);
+
+/**
+ * @brief find an interpolated point from a lanelet at a given distance.
+ * @param [in] lanelet input lanelet.
+ * @param [in] distance desired distance.
+ * @param [in] from_first the distance is measured from the beginning (true) or from the end
+ * (false).
+ * @return lanelet::ConstPoint3d; the first interpolated point within sequence of
+ * lanelet.centerline().
+ * @note return as soon as you hit a segment in any lanelet whose cumulative 2D‑length
+ * exceeds distance.
+ */
+std::optional<lanelet::ConstPoint3d> interpolate_lanelet_sequence(
+  const lanelet::ConstLanelets & lanelet_sequence, double distance, bool from_first);
+
+/**
+ * @brief concatenate all center line of inputted lanelet sequence.
+ * @param [in] lanelet input lanelet.
+ * @return lanelet.centerline of all lanelet as lanelet::ConstLineString3d.
+ */
+std::optional<lanelet::ConstLineString3d> concatenate_center_line(
+  const lanelet::ConstLanelets & lanelets);
 
 }  // namespace autoware::lanelet2_utils
 
