@@ -12,10 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <autoware/lanelet2_utils/stop_line.hpp>
 #include <autoware_lanelet2_extension/regulatory_elements/detection_area.hpp>
 #include <autoware_lanelet2_extension/regulatory_elements/no_stopping_area.hpp>
 #include <autoware_lanelet2_extension/regulatory_elements/road_marking.hpp>
-#include <autoware_lanelet2_utils/stop_line.hpp>
 
 #include <lanelet2_core/LaneletMap.h>
 
@@ -27,91 +27,7 @@
 namespace autoware::lanelet2_utils
 {
 std::optional<lanelet::ConstLineString3d> get_stop_line_from_deprecated_crosswalk(
-  const lanelet::Id lane_id, const lanelet::LaneletMapPtr & lanelet_map_ptr)
-{
-  lanelet::ConstLanelet lanelet = lanelet_map_ptr->laneletLayer.get(lane_id);
-  const auto road_markings = lanelet.regulatoryElementsAs<lanelet::autoware::RoadMarking>();
-  lanelet::ConstLineStrings3d stop_line;
-
-  for (const auto & road_marking : road_markings) {
-    const std::string type =
-      road_marking->roadMarking().attributeOr(lanelet::AttributeName::Type, "none");
-
-    if (type == lanelet::AttributeValueString::StopLine) {
-      stop_line.push_back(road_marking->roadMarking());
-      break;
-    }
-  }
-
-  if (stop_line.empty()) {
-    return {};
-  }
-  return stop_line.front();
-}
-
-std::optional<lanelet::ConstLineString3d> get_stop_lines_from_no_stopping_area(
-  const lanelet::ConstLanelets & lanelets, const std::optional<lanelet::Id> & target_id)
-{
-  for (const auto & ll : lanelets) {
-    std::vector<std::shared_ptr<const lanelet::autoware::NoStoppingArea>> no_stopping_elems =
-      ll.regulatoryElementsAs<lanelet::autoware::NoStoppingArea>();
-
-    if (!no_stopping_elems.empty()) {
-      for (const auto & no_stopping_area : no_stopping_elems) {
-        if (auto opt_stop_line = no_stopping_area->stopLine()) {
-          const lanelet::ConstLineString3d stopLine = *opt_stop_line;
-          if (target_id.has_value()) {
-            if (stopLine.id() == target_id.value()) {
-              return stopLine;
-            }
-          } else {
-            return stopLine;
-          }
-        }
-      }
-    }
-  }
-  return std::nullopt;
-}
-
-std::optional<lanelet::ConstLineString3d> get_stop_lines_from_no_stopping_area(
-  const lanelet::ConstLanelet & lanelet, const std::optional<lanelet::Id> & target_id)
-{
-  return get_stop_lines_from_no_stopping_area(lanelet::ConstLanelets{lanelet}, target_id);
-}
-
-std::optional<lanelet::ConstLineString3d> get_stop_lines_from_detection_area(
-  const lanelet::ConstLanelets & lanelets, const std::optional<lanelet::Id> & target_id)
-{
-  for (const auto & ll : lanelets) {
-    std::vector<std::shared_ptr<const lanelet::autoware::DetectionArea>> detection_areas =
-      ll.regulatoryElementsAs<lanelet::autoware::DetectionArea>();
-
-    if (!detection_areas.empty()) {
-      for (const auto & detection_area : detection_areas) {
-        const lanelet::ConstLineString3d stopLine = detection_area->stopLine();
-        if (target_id.has_value()) {
-          if (stopLine.id() == target_id.value()) {
-            return stopLine;
-          }
-        } else {
-          return stopLine;
-        }
-      }
-    }
-  }
-
-  return std::nullopt;
-}
-
-std::optional<lanelet::ConstLineString3d> get_stop_lines_from_detection_area(
-  const lanelet::ConstLanelet & lanelet, const std::optional<lanelet::Id> & target_id)
-{
-  return get_stop_lines_from_detection_area(lanelet::ConstLanelets{lanelet}, target_id);
-}
-
-std::optional<lanelet::ConstLineString3d> get_stop_line_from_intersection_marking(
-  const lanelet::ConstLanelets & lanelets, const std::optional<lanelet::Id> & target_id)
+  const lanelet::ConstLanelets & lanelets)
 {
   for (const auto & ll : lanelets) {
     std::vector<std::shared_ptr<const lanelet::autoware::RoadMarking>> road_markings =
@@ -121,12 +37,84 @@ std::optional<lanelet::ConstLineString3d> get_stop_line_from_intersection_markin
       for (const auto & road_marking : road_markings) {
         const std::string type =
           road_marking->roadMarking().attributeOr(lanelet::AttributeName::Type, "none");
-        lanelet::ConstLineString3d stop_line = road_marking->roadMarking();
-        if (target_id.has_value()) {
-          if (stop_line.id() == target_id.value()) {
-            return stop_line;
-          }
-        } else {
+        if (type == lanelet::AttributeValueString::StopLine) {
+          lanelet::ConstLineString3d stop_line = road_marking->roadMarking();
+          return stop_line;
+        }
+      }
+    }
+  }
+  return std::nullopt;
+}
+
+std::optional<lanelet::ConstLineString3d> get_stop_line_from_deprecated_crosswalk(
+  const lanelet::ConstLanelet & lanelet)
+{
+  return get_stop_line_from_deprecated_crosswalk(lanelet::ConstLanelets{lanelet});
+}
+
+std::optional<lanelet::ConstLineString3d> get_stop_lines_from_no_stopping_area(
+  const lanelet::ConstLanelets & lanelets)
+{
+  for (const auto & ll : lanelets) {
+    std::vector<std::shared_ptr<const lanelet::autoware::NoStoppingArea>> no_stopping_elems =
+      ll.regulatoryElementsAs<lanelet::autoware::NoStoppingArea>();
+
+    if (!no_stopping_elems.empty()) {
+      for (const auto & no_stopping_area : no_stopping_elems) {
+        if (auto opt_stop_line = no_stopping_area->stopLine()) {
+          const lanelet::ConstLineString3d stopLine = *opt_stop_line;
+          return stopLine;
+        }
+      }
+    }
+  }
+  return std::nullopt;
+}
+
+std::optional<lanelet::ConstLineString3d> get_stop_lines_from_no_stopping_area(
+  const lanelet::ConstLanelet & lanelet)
+{
+  return get_stop_lines_from_no_stopping_area(lanelet::ConstLanelets{lanelet});
+}
+
+std::optional<lanelet::ConstLineString3d> get_stop_lines_from_detection_area(
+  const lanelet::ConstLanelets & lanelets)
+{
+  for (const auto & ll : lanelets) {
+    std::vector<std::shared_ptr<const lanelet::autoware::DetectionArea>> detection_areas =
+      ll.regulatoryElementsAs<lanelet::autoware::DetectionArea>();
+
+    if (!detection_areas.empty()) {
+      for (const auto & detection_area : detection_areas) {
+        const lanelet::ConstLineString3d stopLine = detection_area->stopLine();
+        return stopLine;
+      }
+    }
+  }
+
+  return std::nullopt;
+}
+
+std::optional<lanelet::ConstLineString3d> get_stop_lines_from_detection_area(
+  const lanelet::ConstLanelet & lanelet)
+{
+  return get_stop_lines_from_detection_area(lanelet::ConstLanelets{lanelet});
+}
+
+std::optional<lanelet::ConstLineString3d> get_stop_line_from_intersection_marking(
+  const lanelet::ConstLanelets & lanelets)
+{
+  for (const auto & ll : lanelets) {
+    std::vector<std::shared_ptr<const lanelet::autoware::RoadMarking>> road_markings =
+      ll.regulatoryElementsAs<lanelet::autoware::RoadMarking>();
+
+    if (!road_markings.empty()) {
+      for (const auto & road_marking : road_markings) {
+        const std::string type =
+          road_marking->roadMarking().attributeOr(lanelet::AttributeName::Type, "none");
+        if (type == lanelet::AttributeValueString::StopLine) {
+          lanelet::ConstLineString3d stop_line = road_marking->roadMarking();
           return stop_line;
         }
       }
@@ -136,13 +124,13 @@ std::optional<lanelet::ConstLineString3d> get_stop_line_from_intersection_markin
 }
 
 std::optional<lanelet::ConstLineString3d> get_stop_line_from_intersection_marking(
-  const lanelet::ConstLanelet & lanelet, const std::optional<lanelet::Id> & target_id)
+  const lanelet::ConstLanelet & lanelet)
 {
-  return get_stop_line_from_intersection_marking(lanelet::ConstLanelets{lanelet}, target_id);
+  return get_stop_line_from_intersection_marking(lanelet::ConstLanelets{lanelet});
 }
 
 std::optional<lanelet::ConstLineString3d> get_stop_lines_from_stop_sign(
-  const lanelet::ConstLanelets & lanelets, const std::optional<lanelet::Id> & target_id)
+  const lanelet::ConstLanelets & lanelets)
 {
   for (const auto & ll : lanelets) {
     std::vector<std::shared_ptr<const lanelet::TrafficSign>> traffic_sign_reg_elems =
@@ -155,13 +143,7 @@ std::optional<lanelet::ConstLineString3d> get_stop_lines_from_stop_sign(
         }
         lanelet::ConstLineStrings3d traffic_sign_stoplines = ts->refLines();
         if (!traffic_sign_stoplines.empty()) {
-          if (target_id.has_value()) {
-            if (traffic_sign_stoplines.front().id() == target_id) {
-              return traffic_sign_stoplines.front();
-            }
-          } else {
-            return traffic_sign_stoplines.front();
-          }
+          return traffic_sign_stoplines.front();
         }
       }
     }
@@ -170,9 +152,9 @@ std::optional<lanelet::ConstLineString3d> get_stop_lines_from_stop_sign(
 }
 
 std::optional<lanelet::ConstLineString3d> get_stop_lines_from_stop_sign(
-  const lanelet::ConstLanelet & lanelet, const std::optional<lanelet::Id> & target_id)
+  const lanelet::ConstLanelet & lanelet)
 {
-  return get_stop_lines_from_stop_sign(lanelet::ConstLanelets{lanelet}, target_id);
+  return get_stop_lines_from_stop_sign(lanelet::ConstLanelets{lanelet});
 }
 
 }  // namespace autoware::lanelet2_utils
