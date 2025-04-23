@@ -19,7 +19,7 @@
 #include <utility>
 #include <vector>
 
-namespace autoware::trajectory::interpolator
+namespace autoware::experimental::trajectory::interpolator
 {
 
 bool SphericalLinear::build_impl(
@@ -32,9 +32,9 @@ bool SphericalLinear::build_impl(
 }
 
 bool SphericalLinear::build_impl(
-  std::vector<double> && bases, std::vector<geometry_msgs::msg::Quaternion> && quaternions)
+  const std::vector<double> & bases, std::vector<geometry_msgs::msg::Quaternion> && quaternions)
 {
-  this->bases_ = std::move(bases);
+  this->bases_ = bases;
   this->quaternions_ = std::move(quaternions);
   return true;
 }
@@ -71,4 +71,4 @@ size_t SphericalLinear::minimum_required_points() const
 {
   return 2;
 }
-}  // namespace autoware::trajectory::interpolator
+}  // namespace autoware::experimental::trajectory::interpolator

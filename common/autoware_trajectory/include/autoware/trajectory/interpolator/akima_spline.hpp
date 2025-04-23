@@ -21,7 +21,7 @@
 
 #include <vector>
 
-namespace autoware::trajectory::interpolator
+namespace autoware::experimental::trajectory::interpolator
 {
 
 /**
@@ -62,7 +62,7 @@ private:
    * @param values The values to interpolate.
    */
   [[nodiscard]] bool build_impl(
-    std::vector<double> && bases, std::vector<double> && values) override;
+    const std::vector<double> & bases, std::vector<double> && values) override;
 
   /**
    * @brief Compute the interpolated value at the given point.
@@ -99,6 +99,6 @@ public:
   size_t minimum_required_points() const override { return 5; }
 };
 
-}  // namespace autoware::trajectory::interpolator
+}  // namespace autoware::experimental::trajectory::interpolator
 
 #endif  // AUTOWARE__TRAJECTORY__INTERPOLATOR__AKIMA_SPLINE_HPP_

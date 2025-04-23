@@ -24,7 +24,7 @@
 #include <utility>
 #include <vector>
 
-namespace autoware::trajectory::interpolator::detail
+namespace autoware::experimental::trajectory::interpolator::detail
 {
 
 /**
@@ -81,18 +81,20 @@ struct InterpolatorMixin : public InterpolatorInterface<T>
     }
 
     template <typename... Args>
-    [[nodiscard]] std::optional<InterpolatorType> build(Args &&... args)
+    [[nodiscard]] tl::expected<InterpolatorType, interpolator::InterpolationFailure> build(
+      Args &&... args)
     {
       auto interpolator = InterpolatorType(std::forward<Args>(args)...);
-      const bool success = interpolator.build(std::move(bases_), std::move(values_));
+      const interpolator::InterpolationResult success =
+        interpolator.build(std::move(bases_), std::move(values_));
       if (!success) {
-        return std::nullopt;
+        return tl::unexpected(success.error());
       }
       return interpolator;
     }
   };
 };
 
-}  // namespace autoware::trajectory::interpolator::detail
+}  // namespace autoware::experimental::trajectory::interpolator::detail
 
 #endif  // AUTOWARE__TRAJECTORY__INTERPOLATOR__DETAIL__INTERPOLATOR_MIXIN_HPP_

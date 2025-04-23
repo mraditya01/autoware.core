@@ -24,7 +24,7 @@
 #include <utility>
 #include <vector>
 
-namespace autoware::trajectory
+namespace autoware::experimental::trajectory
 {
 template <>
 class Trajectory<autoware_planning_msgs::msg::TrajectoryPoint>
@@ -33,28 +33,40 @@ class Trajectory<autoware_planning_msgs::msg::TrajectoryPoint>
   using BaseClass = Trajectory<geometry_msgs::msg::Pose>;
   using PointType = autoware_planning_msgs::msg::TrajectoryPoint;
 
-  std::shared_ptr<detail::InterpolatedArray<double>>
-    longitudinal_velocity_mps_;  //!< Longitudinal velocity in m/s
-  std::shared_ptr<detail::InterpolatedArray<double>>
-    lateral_velocity_mps_;  //!< Lateral velocity in m/s
-  std::shared_ptr<detail::InterpolatedArray<double>>
-    heading_rate_rps_;  //!< Heading rate in rad/s};
-  std::shared_ptr<detail::InterpolatedArray<double>>
-    acceleration_mps2_;  //!< Longitudinal acceleration in m/s^2} Warning, this is not used
-  std::shared_ptr<detail::InterpolatedArray<double>>
-    front_wheel_angle_rad_;  //!< Front wheel angle in rad} Warning, this is not used
-  std::shared_ptr<detail::InterpolatedArray<double>>
-    rear_wheel_angle_rad_;  //!< Rear wheel angle in rad} Warning, this is not used
+protected:
+  std::shared_ptr<detail::InterpolatedArray<double>> longitudinal_velocity_mps_{
+    nullptr};  //!< Longitudinal velocity in m/s
+  std::shared_ptr<detail::InterpolatedArray<double>> lateral_velocity_mps_{
+    nullptr};  //!< Lateral velocity in m/s
+  std::shared_ptr<detail::InterpolatedArray<double>> heading_rate_rps_{
+    nullptr};  //!< Heading rate in rad/s};
+  std::shared_ptr<detail::InterpolatedArray<double>> acceleration_mps2_{
+    nullptr};  //!< Longitudinal acceleration in m/s^2} Warning, this is not used
+  std::shared_ptr<detail::InterpolatedArray<double>> front_wheel_angle_rad_{
+    nullptr};  //!< Front wheel angle in rad} Warning, this is not used
+  std::shared_ptr<detail::InterpolatedArray<double>> rear_wheel_angle_rad_{
+    nullptr};  //!< Rear wheel angle in rad} Warning, this is not used
+
+  /**
+   * @brief add the event function to
+   * longitudinal_velocity_mps/lateral_velocity_mps/heading_rate_mps/acceleration_mps2/front_wheel_angle_rad/rear_wheel_angle_rad
+   * interpolator
+   * @note when a new base is added to longitudinal_velocity_mps for example, the addition is also
+   * notified and update_base() is triggered.
+   */
+  virtual void add_base_addition_callback();
 
 public:
   Trajectory();
   ~Trajectory() override = default;
   Trajectory(const Trajectory & rhs);
-  Trajectory(Trajectory && rhs) = default;
+  Trajectory(Trajectory && rhs) noexcept;
   Trajectory & operator=(const Trajectory & rhs);
-  Trajectory & operator=(Trajectory && rhs) = default;
+  Trajectory & operator=(Trajectory && rhs) noexcept;
 
-  std::vector<double> get_internal_bases() const override;
+  [[deprecated]] std::vector<double> get_internal_bases() const override;
+
+  std::vector<double> get_underlying_bases() const override;
 
   detail::InterpolatedArray<double> & longitudinal_velocity_mps()
   {
@@ -103,7 +115,7 @@ public:
    * @param points Vector of points
    * @return True if the build is successful
    */
-  bool build(const std::vector<PointType> & points);
+  interpolator::InterpolationResult build(const std::vector<PointType> & points);
 
   /**
    * @brief Compute the point on the trajectory at a given s value
@@ -113,20 +125,34 @@ public:
   PointType compute(const double s) const;
 
   /**
+   * @brief Compute the points on the trajectory at given s values
+   * @param ss Arc lengths
+   * @return Points on the trajectory
+   */
+  std::vector<PointType> compute(const std::vector<double> & ss) const;
+
+  /**
    * @brief Restore the trajectory points
    * @param min_points Minimum number of points
    * @return Vector of points
    */
   std::vector<PointType> restore(const size_t min_points = 4) const;
 
-  class Builder
+  class Builder : public BaseClass::Builder
   {
   private:
     std::unique_ptr<Trajectory> trajectory_;
 
   public:
-    Builder() : trajectory_(std::make_unique<Trajectory>()) {}
+    Builder();
 
+    /**
+     * @brief create the default interpolator setting
+     * @note In addition to the base class, Stairstep for
+     * longitudinal_velocity_mps, lateral_velocity_mps, heading_rate_rps, acceleration_mps2,
+     * front_wheel_angle_rad, rear_wheel_angle_rad
+     */
+    static void defaults(Trajectory * trajectory);
     template <class InterpolatorType, class... Args>
     Builder & set_xy_interpolator(Args &&... args)
     {
@@ -201,18 +227,11 @@ public:
       return *this;
     }
 
-    std::optional<Trajectory> build(const std::vector<PointType> & points)
-    {
-      if (trajectory_->build(points)) {
-        auto result = std::make_optional<Trajectory>(std::move(*trajectory_));
-        trajectory_.reset();
-        return result;
-      }
-      return std::nullopt;
-    }
+    tl::expected<Trajectory, interpolator::InterpolationFailure> build(
+      const std::vector<PointType> & points);
   };
 };
 
-}  // namespace autoware::trajectory
+}  // namespace autoware::experimental::trajectory
 
 #endif  // AUTOWARE__TRAJECTORY__TRAJECTORY_POINT_HPP_

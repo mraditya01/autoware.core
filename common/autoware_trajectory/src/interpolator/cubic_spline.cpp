@@ -16,7 +16,7 @@
 
 #include <Eigen/Dense>
 
-namespace autoware::trajectory::interpolator
+namespace autoware::experimental::trajectory::interpolator
 {
 
 void CubicSpline::compute_parameters(
@@ -70,9 +70,9 @@ bool CubicSpline::build_impl(const std::vector<double> & bases, const std::vecto
   return true;
 }
 
-bool CubicSpline::build_impl(std::vector<double> && bases, std::vector<double> && values)
+bool CubicSpline::build_impl(const std::vector<double> & bases, std::vector<double> && values)
 {
-  this->bases_ = std::move(bases);
+  this->bases_ = bases;
   compute_parameters(
     Eigen::Map<const Eigen::VectorXd>(
       this->bases_.data(), static_cast<Eigen::Index>(this->bases_.size())),
@@ -101,4 +101,4 @@ double CubicSpline::compute_second_derivative_impl(const double s) const
   return 2 * c_(i) + 6 * d_(i) * dx;
 }
 
-}  // namespace autoware::trajectory::interpolator
+}  // namespace autoware::experimental::trajectory::interpolator

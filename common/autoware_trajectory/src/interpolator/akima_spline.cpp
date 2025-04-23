@@ -19,7 +19,7 @@
 #include <cmath>
 #include <utility>
 #include <vector>
-namespace autoware::trajectory::interpolator
+namespace autoware::experimental::trajectory::interpolator
 {
 
 void AkimaSpline::compute_parameters(
@@ -69,12 +69,11 @@ bool AkimaSpline::build_impl(const std::vector<double> & bases, const std::vecto
   return true;
 }
 
-bool AkimaSpline::build_impl(std::vector<double> && bases, std::vector<double> && values)
+bool AkimaSpline::build_impl(const std::vector<double> & bases, std::vector<double> && values)
 {
-  this->bases_ = std::move(bases);
+  this->bases_ = bases;
   compute_parameters(
-    Eigen::Map<const Eigen::VectorXd>(
-      this->bases_.data(), static_cast<Eigen::Index>(this->bases_.size())),
+    Eigen::Map<const Eigen::VectorXd>(bases.data(), static_cast<Eigen::Index>(bases.size())),
     Eigen::Map<const Eigen::VectorXd>(values.data(), static_cast<Eigen::Index>(values.size())));
   return true;
 }
@@ -100,4 +99,4 @@ double AkimaSpline::compute_second_derivative_impl(const double s) const
   return 2 * c_[i] + 6 * d_[i] * dx;
 }
 
-}  // namespace autoware::trajectory::interpolator
+}  // namespace autoware::experimental::trajectory::interpolator

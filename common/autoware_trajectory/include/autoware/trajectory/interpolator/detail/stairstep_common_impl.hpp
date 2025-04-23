@@ -20,7 +20,7 @@
 #include <utility>
 #include <vector>
 
-namespace autoware::trajectory::interpolator
+namespace autoware::experimental::trajectory::interpolator
 {
 
 template <typename T>
@@ -73,9 +73,10 @@ protected:
    * @param bases The bases values.
    * @param values The values to interpolate.
    */
-  [[nodiscard]] bool build_impl(std::vector<double> && bases, std::vector<T> && values) override
+  [[nodiscard]] bool build_impl(
+    const std::vector<double> & bases, std::vector<T> && values) override
   {
-    this->bases_ = std::move(bases);
+    this->bases_ = bases;
     this->values_ = std::move(values);
     return true;
   }
@@ -92,6 +93,6 @@ public:
   [[nodiscard]] size_t minimum_required_points() const override { return 2; }
 };
 }  // namespace detail
-}  // namespace autoware::trajectory::interpolator
+}  // namespace autoware::experimental::trajectory::interpolator
 
 #endif  // AUTOWARE__TRAJECTORY__INTERPOLATOR__DETAIL__STAIRSTEP_COMMON_IMPL_HPP_

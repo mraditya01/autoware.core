@@ -19,7 +19,7 @@
 #include <utility>
 #include <vector>
 
-namespace autoware::trajectory::interpolator
+namespace autoware::experimental::trajectory::interpolator
 {
 
 bool Linear::build_impl(const std::vector<double> & bases, const std::vector<double> & values)
@@ -30,9 +30,9 @@ bool Linear::build_impl(const std::vector<double> & bases, const std::vector<dou
   return true;
 }
 
-bool Linear::build_impl(std::vector<double> && bases, std::vector<double> && values)
+bool Linear::build_impl(const std::vector<double> & bases, std::vector<double> && values)
 {
-  this->bases_ = std::move(bases);
+  this->bases_ = bases;
   this->values_ =
     Eigen::Map<const Eigen::VectorXd>(values.data(), static_cast<Eigen::Index>(values.size()));
   return true;
@@ -67,4 +67,4 @@ size_t Linear::minimum_required_points() const
 {
   return 2;
 }
-}  // namespace autoware::trajectory::interpolator
+}  // namespace autoware::experimental::trajectory::interpolator

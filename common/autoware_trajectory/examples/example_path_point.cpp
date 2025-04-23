@@ -16,13 +16,15 @@
 #include "autoware/trajectory/utils/crossed.hpp"
 #include "lanelet2_core/primitives/LineString.h"
 
+#include <autoware/pyplot/pyplot.hpp>
+
 #include <autoware_planning_msgs/msg/path_point.hpp>
 #include <geometry_msgs/msg/point.hpp>
 
 #include <boost/geometry/geometries/linestring.hpp>
 
-#include <Eigen/src/Core/Matrix.h>
-#include <matplotlibcpp17/pyplot.h>
+#include <pybind11/embed.h>
+#include <pybind11/stl.h>
 
 #include <iostream>
 #include <vector>
@@ -38,11 +40,11 @@ autoware_planning_msgs::msg::PathPoint path_point(double x, double y)
 
 int main()
 {
-  using autoware::trajectory::Trajectory;
+  using autoware::experimental::trajectory::Trajectory;
 
   pybind11::scoped_interpreter guard{};
 
-  auto plt = matplotlibcpp17::pyplot::import();
+  auto plt = autoware::pyplot::import();
 
   std::vector<autoware_planning_msgs::msg::PathPoint> points = {
     path_point(0.49, 0.59), path_point(0.61, 1.22), path_point(0.86, 1.93), path_point(1.20, 2.56),
@@ -78,7 +80,7 @@ int main()
   line_string.push_back(lanelet::Point3d(lanelet::InvalId, 7.5, 8.6, 0.0));
   line_string.push_back(lanelet::Point3d(lanelet::InvalId, 10.2, 7.7, 0.0));
 
-  auto s = autoware::trajectory::crossed(*trajectory, line_string);
+  auto s = autoware::experimental::trajectory::crossed(*trajectory, line_string);
   auto crossed = trajectory->compute(s.at(0));
 
   plt.plot(
@@ -113,6 +115,7 @@ int main()
   plt.plot(Args(x_stopped, y_stopped), Kwargs("label"_a = "Stopped", "color"_a = "orange"));
 
   plt.axis(Args("equal"));
+  plt.grid();
   plt.legend();
   plt.show();
 }

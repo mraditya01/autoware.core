@@ -23,8 +23,6 @@
 #include <limits>
 #include <memory>
 #include <optional>
-#include <string>
-#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -34,28 +32,15 @@ using autoware_internal_planning_msgs::msg::PathPointWithLaneId;
 using autoware_internal_planning_msgs::msg::PathWithLaneId;
 using autoware_vehicle_msgs::msg::TurnIndicatorsCommand;
 
-const std::unordered_map<std::string, uint8_t> turn_signal_command_map = {
-  {"left", TurnIndicatorsCommand::ENABLE_LEFT},
-  {"right", TurnIndicatorsCommand::ENABLE_RIGHT},
-  {"straight", TurnIndicatorsCommand::DISABLE}};
+template <typename T>
+struct PathRange
+{
+  T left;
+  T right;
+};
 
 namespace utils
 {
-/**
- * @brief get lanelets within route that are in specified distance forward or backward from
- * current position
- * @param lanelet lanelet where ego vehicle is on
- * @param planner_data planner data
- * @param current_pose current pose of ego vehicle
- * @param backward_distance backward distance from ego vehicle
- * @param forward_distance forward distance from ego vehicle
- * @return lanelets in range (std::nullopt if target lanelet is not within route)
- */
-std::optional<lanelet::ConstLanelets> get_lanelets_within_route(
-  const lanelet::ConstLanelet & lanelet, const PlannerData & planner_data,
-  const geometry_msgs::msg::Pose & current_pose, const double backward_distance,
-  const double forward_distance);
-
 /**
  * @brief get lanelets within route that are in specified distance backward from target
  * lanelet
@@ -113,41 +98,68 @@ std::vector<std::pair<lanelet::ConstPoints3d, std::pair<double, double>>> get_wa
   const double group_separation_threshold, const double interval_margin_ratio);
 
 /**
- * @brief get position of first self-intersection (point where return
- * path intersects outward path) of lanelet sequence in arc length
- * @param lanelet_sequence target lanelet sequence (both left and right bound are
- * considered)
- * @param s_start longitudinal distance of point to start searching for self-intersections
+ * @brief get position of first intersection (including self-intersection) in lanelet sequence in
+ * arc length
+ * @param lanelet_sequence target lanelet sequence
+ * @param s_start longitudinal distance of point to start searching for intersections
  * @param s_end longitudinal distance of point to end search
+ * @param vehicle_length vehicle length
+ * @return longitudinal distance of intersecting point (std::nullopt if no intersection)
+ */
+std::optional<double> get_first_intersection_arc_length(
+  const lanelet::LaneletSequence & lanelet_sequence, const double s_start, const double s_end,
+  const double vehicle_length);
+
+/**
+ * @brief get position of first self-intersection (point where return
+ * path intersects outward path) of line string in arc length
+ * @param line_string target line string
  * @return longitudinal distance of self-intersecting point (std::nullopt if no
  * self-intersection)
  */
 std::optional<double> get_first_self_intersection_arc_length(
+  const lanelet::BasicLineString2d & line_string);
+
+/**
+ * @brief get path bounds for PathWithLaneId cropped within specified range
+ * @param lanelet_sequence lanelet sequence
+ * @param s_start longitudinal distance of start of bound on centerline
+ * @param s_end longitudinal distance of end of bound on centerline
+ * @return cropped bounds (left / right)
+ */
+PathRange<std::vector<geometry_msgs::msg::Point>> get_path_bounds(
   const lanelet::LaneletSequence & lanelet_sequence, const double s_start, const double s_end);
 
 /**
- * @brief get position of first self-intersection of line string in arc length
- * @param line_string target line string
- * @param s_start longitudinal distance of point to start searching for self-intersections
- * @param s_end longitudinal distance of point to end search
- * @return longitudinal distance of self-intersecting point (std::nullopt if no
- * self-intersection)
+ * @brief crop line string
+ * @param line_string line string
+ * @param s_start longitudinal distance to crop from
+ * @param s_end longitudinal distance to crop to
+ * @return cropped line string
  */
-std::optional<double> get_first_self_intersection_arc_length(
-  const lanelet::BasicLineString2d & line_string, const double s_start, const double s_end);
+std::vector<geometry_msgs::msg::Point> crop_line_string(
+  const std::vector<geometry_msgs::msg::Point> & line_string, const double s_start,
+  const double s_end);
 
 /**
- * @brief get path bound for PathWithLaneId cropped within specified range
- * @param lanelet_bound original bound of lanelet
- * @param lanelet_centerline centerline of lanelet
- * @param s_start longitudinal distance of start of bound
- * @param s_end longitudinal distance of end of bound
- * @return cropped bound
+ * @brief get positions of given point on centerline projected to left / right bound in arc length
+ * @param lanelet_sequence lanelet sequence
+ * @param s_centerline longitudinal distance of point on centerline
+ * @return longitudinal distance of projected point (left / right)
  */
-std::vector<geometry_msgs::msg::Point> get_path_bound(
-  const lanelet::CompoundLineString3d & lanelet_bound,
-  const lanelet::CompoundLineString2d & lanelet_centerline, const double s_start,
-  const double s_end);
+PathRange<double> get_arc_length_on_bounds(
+  const lanelet::LaneletSequence & lanelet_sequence, const double s_centerline);
+
+/**
+ * @brief get positions of given point on left / right bound projected to centerline in arc length
+ * @param lanelet_sequence lanelet sequence
+ * @param s_left_bound longitudinal distance of point on left bound
+ * @param s_right_bound longitudinal distance of point on left bound
+ * @return longitudinal distance of projected point (left / right)
+ */
+PathRange<std::optional<double>> get_arc_length_on_centerline(
+  const lanelet::LaneletSequence & lanelet_sequence, const std::optional<double> & s_left_bound,
+  const std::optional<double> & s_right_bound);
 
 /**
  * @brief Recreate the goal pose to prevent the goal point being too far from the lanelet, which

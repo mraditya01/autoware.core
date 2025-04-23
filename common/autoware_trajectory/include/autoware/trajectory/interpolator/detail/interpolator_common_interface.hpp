@@ -15,13 +15,14 @@
 #ifndef AUTOWARE__TRAJECTORY__INTERPOLATOR__DETAIL__INTERPOLATOR_COMMON_INTERFACE_HPP_
 #define AUTOWARE__TRAJECTORY__INTERPOLATOR__DETAIL__INTERPOLATOR_COMMON_INTERFACE_HPP_
 
-#include <Eigen/Dense>
+#include "autoware/trajectory/interpolator/result.hpp"
+
 #include <rclcpp/logging.hpp>
 
 #include <utility>
 #include <vector>
 
-namespace autoware::trajectory::interpolator::detail
+namespace autoware::experimental::trajectory::interpolator::detail
 {
 /**
  * @brief Base class for interpolation implementations.
@@ -76,7 +77,8 @@ protected:
    * @param bases The bases values.
    * @param values The values to interpolate.
    */
-  [[nodiscard]] virtual bool build_impl(std::vector<double> && bases, std::vector<T> && values) = 0;
+  [[nodiscard]] virtual bool build_impl(
+    const std::vector<double> & bases, std::vector<T> && values) = 0;
 
   /**
    * @brief Validate the input to the compute method.
@@ -88,7 +90,8 @@ protected:
    */
   double validate_compute_input(const double s) const
   {
-    if (s < start() || s > end()) {
+    constexpr double eps = 1e-5;
+    if (eps < start() - s || s - end() > eps) {
       RCLCPP_WARN(
         rclcpp::get_logger("Interpolator"),
         "Input value %f is outside the range of the interpolator [%f, %f].", s, start(), end());
@@ -141,15 +144,23 @@ public:
     std::conjunction_v<
       std::is_same<std::decay_t<BaseVectorT>, std::vector<double>>,
       std::is_same<std::decay_t<ValueVectorT>, std::vector<T>>>,
-    bool>
+    InterpolationResult>
   {
     if (bases.size() != values.size()) {
-      return false;
+      return tl::unexpected(InterpolationFailure{
+        "base size " + std::to_string(bases.size()) + " and value size " +
+        std::to_string(values.size()) + " are different"});
     }
-    if (bases.size() < minimum_required_points()) {
-      return false;
+    if (const auto minimum_required = minimum_required_points(); bases.size() < minimum_required) {
+      return tl::unexpected(InterpolationFailure{
+        "base size " + std::to_string(bases.size()) + " is less than minimum required " +
+        std::to_string(minimum_required)});
     }
-    return build_impl(std::forward<BaseVectorT>(bases), std::forward<ValueVectorT>(values));
+    if (!build_impl(std::forward<BaseVectorT>(bases), std::forward<ValueVectorT>(values))) {
+      return tl::unexpected(
+        InterpolationFailure{"failed to interpolate from given base and values"});
+    }
+    return InterpolationSuccess{};
   }
 
   /**
@@ -173,7 +184,40 @@ public:
     const double clamped_s = validate_compute_input(s);
     return compute_impl(clamped_s);
   }
+
+  /**
+   * @brief Compute the interpolated value at the given point.
+   *
+   * @param s The point at which to compute the interpolated value.
+   * @return The interpolated value.
+   * @throw std::runtime_error if the interpolator has not been built.
+   */
+  std::vector<T> compute(const std::vector<double> & ss) const
+  {
+    std::vector<T> ret;
+    for (const auto s : ss) {
+      ret.push_back(compute(s));
+    }
+    return ret;
+  }
+
+  /**
+   * @brief return the list of base values from start() to end() with the given interval
+   * @param tick the length of interval
+   * @return array of double from start() to end() including the end()
+   */
+  std::vector<double> base_arange(const double tick) const
+  {
+    std::vector<double> x;
+    for (double s = start(); s < end(); s += tick) {
+      x.push_back(s);
+    }
+    if (x.back() != end()) {
+      x.push_back(end());
+    }
+    return x;
+  }
 };
-}  // namespace autoware::trajectory::interpolator::detail
+}  // namespace autoware::experimental::trajectory::interpolator::detail
 
 #endif  // AUTOWARE__TRAJECTORY__INTERPOLATOR__DETAIL__INTERPOLATOR_COMMON_INTERFACE_HPP_
