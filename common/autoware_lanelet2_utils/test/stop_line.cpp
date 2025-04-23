@@ -53,7 +53,11 @@ TEST_F(TestGetStopLineFromMap, GetStopLineFromDeprecatedCrosswalk)
 {
   const lanelet::ConstLanelets lanelets(
     lanelet_map_ptr_->laneletLayer.begin(), lanelet_map_ptr_->laneletLayer.end());
-  auto stopline_opt = lanelet2_utils::get_stop_line_from_deprecated_crosswalk(lanelets);
+  std::optional<lanelet::ConstLineString3d> stopline_opt;
+  for (const auto & llt : lanelet_map_ptr_->laneletLayer) {
+    stopline_opt = experimental::lanelet2_utils::get_stop_line_from_deprecated_crosswalk(llt);
+    if (stopline_opt) break;
+  }
 
   ASSERT_TRUE(stopline_opt.has_value()) << "No stop line found for RoadMarking without target_id.";
   std::cout << "Stop line ID: " << stopline_opt->id() << std::endl;
@@ -63,8 +67,9 @@ TEST_F(TestGetStopLineFromMap, GetStopLineFromDeprecatedCrosswalk)
 // Test 2: deprecated crosswalk Empty container no stop line
 TEST_F(TestGetStopLineFromMap, EmptyLaneletContainer_DeprecatedCrosswalk)
 {
-  lanelet::ConstLanelets empty_lanelets;
-  auto stopline_opt = lanelet2_utils::get_stop_line_from_deprecated_crosswalk(empty_lanelets);
+  lanelet::ConstLanelet empty_lanelet;
+  auto stopline_opt =
+    experimental::lanelet2_utils::get_stop_line_from_deprecated_crosswalk(empty_lanelet);
   EXPECT_FALSE(stopline_opt.has_value())
     << "Stop line found in empty lanelet container for deprecated crosswalk.";
 }
@@ -74,8 +79,11 @@ TEST_F(TestGetStopLineFromMap, GetStopLineFromNoStoppingArea_NoTarget)
 {
   const lanelet::ConstLanelets lanelets(
     lanelet_map_ptr_->laneletLayer.begin(), lanelet_map_ptr_->laneletLayer.end());
-
-  auto stopline_opt = lanelet2_utils::get_stop_lines_from_no_stopping_area(lanelets);
+  std::optional<lanelet::ConstLineString3d> stopline_opt;
+  for (const auto & llt : lanelet_map_ptr_->laneletLayer) {
+    stopline_opt = experimental::lanelet2_utils::get_stop_lines_from_no_stopping_area(llt);
+    if (stopline_opt) break;
+  }
   ASSERT_TRUE(stopline_opt.has_value())
     << "No stop line found for NoStoppingArea without target_id.";
   lanelet::Id expected_stop_line_id = 208;
@@ -86,8 +94,9 @@ TEST_F(TestGetStopLineFromMap, GetStopLineFromNoStoppingArea_NoTarget)
 // Test 4: get_stop_lines_from_no_stopping_area empty lanelet container no stop line
 TEST_F(TestGetStopLineFromMap, EmptyLaneletContainer_NoStoppingArea)
 {
-  lanelet::ConstLanelets empty_lanelets;
-  auto stopline_opt = lanelet2_utils::get_stop_lines_from_no_stopping_area(empty_lanelets);
+  lanelet::ConstLanelet empty_lanelet;
+  auto stopline_opt =
+    experimental::lanelet2_utils::get_stop_lines_from_no_stopping_area(empty_lanelet);
   EXPECT_FALSE(stopline_opt.has_value())
     << "Stop line found in empty lanelet container for NoStoppingArea.";
 }
@@ -98,7 +107,11 @@ TEST_F(TestGetStopLineFromMap, GetStopLineFromDetectionArea_NoTarget)
   const lanelet::ConstLanelets lanelets(
     lanelet_map_ptr_->laneletLayer.begin(), lanelet_map_ptr_->laneletLayer.end());
 
-  auto stopline_opt = lanelet2_utils::get_stop_lines_from_detection_area(lanelets);
+  std::optional<lanelet::ConstLineString3d> stopline_opt;
+  for (const auto & llt : lanelet_map_ptr_->laneletLayer) {
+    stopline_opt = experimental::lanelet2_utils::get_stop_lines_from_detection_area(llt);
+    if (stopline_opt) break;
+  }
   ASSERT_TRUE(stopline_opt.has_value())
     << "No stop line found for DetectionArea without target_id.";
   lanelet::Id expected_stop_line_id = 209;
@@ -109,8 +122,9 @@ TEST_F(TestGetStopLineFromMap, GetStopLineFromDetectionArea_NoTarget)
 // Test 6: get_stop_lines_from_detection_area empty lanelet container stop line
 TEST_F(TestGetStopLineFromMap, EmptyLaneletContainer_DetectionArea)
 {
-  lanelet::ConstLanelets empty_lanelets;
-  auto stopline_opt = lanelet2_utils::get_stop_lines_from_detection_area(empty_lanelets);
+  lanelet::ConstLanelet empty_lanelet;
+  auto stopline_opt =
+    experimental::lanelet2_utils::get_stop_lines_from_detection_area(empty_lanelet);
   EXPECT_FALSE(stopline_opt.has_value())
     << "Stop line found in empty lanelet container for DetectionArea.";
 }
@@ -121,7 +135,12 @@ TEST_F(TestGetStopLineFromMap, GetStopLineFromIntersectionMarking_NoTarget)
   const lanelet::ConstLanelets lanelets(
     lanelet_map_ptr_->laneletLayer.begin(), lanelet_map_ptr_->laneletLayer.end());
 
-  auto stopline_opt = lanelet2_utils::get_stop_line_from_intersection_marking(lanelets);
+  std::optional<lanelet::ConstLineString3d> stopline_opt;
+  for (const auto & llt : lanelet_map_ptr_->laneletLayer) {
+    stopline_opt = experimental::lanelet2_utils::get_stop_line_from_intersection_marking(llt);
+    if (stopline_opt) break;
+  }
+
   ASSERT_TRUE(stopline_opt.has_value())
     << "No stop line found for IntersectionMarking without target_id.";
   lanelet::Id expected_stop_line_id = 198;
@@ -134,11 +153,16 @@ TEST_F(TestGetStopLineFromMap, GetStopLineFromStopSign_NoTarget)
 {
   const lanelet::ConstLanelets lanelets(
     lanelet_map_ptr_->laneletLayer.begin(), lanelet_map_ptr_->laneletLayer.end());
-  lanelet::Id expected_stop_line_id = 206;
-  auto stopline_opt = lanelet2_utils::get_stop_lines_from_stop_sign(lanelets);
+
+  std::optional<lanelet::ConstLineString3d> stopline_opt;
+  for (const auto & llt : lanelet_map_ptr_->laneletLayer) {
+    stopline_opt = experimental::lanelet2_utils::get_stop_lines_from_stop_sign(llt);
+    if (stopline_opt) break;
+  }
 
   ASSERT_TRUE(stopline_opt.has_value())
     << "No stop line found for get_stop_lines_from_stop_sign without target_id.";
+  lanelet::Id expected_stop_line_id = 206;
   EXPECT_EQ(stopline_opt->id(), expected_stop_line_id)
     << "Expected stop line ID (" << expected_stop_line_id
     << ") not found for get_stop_lines_from_stop_sign without target_id.";
