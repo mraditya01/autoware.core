@@ -15,6 +15,8 @@
 #ifndef AUTOWARE__LANELET2_UTILS__GEOMETRY_HPP_
 #define AUTOWARE__LANELET2_UTILS__GEOMETRY_HPP_
 
+#include <geometry_msgs/msg/pose.hpp>
+
 #include <lanelet2_core/Forward.h>
 
 #include <optional>
@@ -101,6 +103,27 @@ std::optional<lanelet::ConstPoint3d> interpolate_lanelet_sequence(
 std::optional<lanelet::ConstLineString3d> concatenate_center_line(
   const lanelet::ConstLanelets & lanelets);
 
+/**
+ * @brief extract a sub-linestring between two arc-length positions along an input linestring.
+ * @param[in] linestring the original ConstLineString3d.
+ * @param[in] s1 the start distance (arc length from the beginning of the linestring).
+ * @param[in] s2 the end distance (arc length from the beginning of the linestring).
+ * @return new LineString3d containing the interpolated start point and end point, with original
+ * point strictly between s1 and s2.
+ */
+std::optional<lanelet::LineString3d> get_linestring_from_arc_length(
+  const lanelet::ConstLineString3d & linestring, const double s1, const double s2);
+
+/**
+ * @brief compute the 2D pose (position and heading) at a given arc-length along a sequence of
+ * lanelets.
+ * @param[in] lanelet_sequence sequence of ConstLanelets whose centerlines define the path.
+ * @param[in] s arc-length distance (from the start of the sequence).
+ * @return optional Pose message, returns std::nullopt if the sequence is empty or if s is outside
+ * the total path length.
+ */
+std::optional<geometry_msgs::msg::Pose> get_pose_from_2d_arc_length(
+  const lanelet::ConstLanelets & lanelet_sequence, const double s);
 }  // namespace autoware::lanelet2_utils
 
 #endif  // AUTOWARE__LANELET2_UTILS__GEOMETRY_HPP_
