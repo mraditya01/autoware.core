@@ -58,7 +58,7 @@ TEST(ExtrapolatedPointTest, ForwardExtrapolation)
   lanelet::ConstPoint3d p2(2, 10.0, 0.0, 0.0);
   double distance = 5.0;
 
-  auto interpolated_pt = lanelet2_utils::extrapolate_point(p1, p2, distance, true);
+  auto interpolated_pt = lanelet2_utils::extrapolate_point(p1, p2, distance);
   ASSERT_TRUE(interpolated_pt.has_value());
   auto point = *interpolated_pt;
 
@@ -67,55 +67,35 @@ TEST(ExtrapolatedPointTest, ForwardExtrapolation)
   EXPECT_NEAR(point.z(), 0.0, 1e-6);
 }
 
-// Test 2: Backward extrapolation
-TEST(ExtrapolatedPointTest, BackwardExtrapolation)
-{
-  lanelet::ConstPoint3d p1(1, 0.0, 0.0, 0.0);
-  lanelet::ConstPoint3d p2(2, 10.0, 0.0, 0.0);
-  double distance = 5.0;
-
-  auto interpolated_pt = lanelet2_utils::extrapolate_point(p1, p2, distance, false);
-  ASSERT_TRUE(interpolated_pt.has_value());
-  auto point = *interpolated_pt;
-
-  EXPECT_NEAR(point.x(), -5.0, 1e-6);
-  EXPECT_NEAR(point.y(), 0.0, 1e-6);
-  EXPECT_NEAR(point.z(), 0.0, 1e-6);
-}
-
-// Test 3: Zero distance extrapolation
+// Test 2: Zero distance extrapolation
 TEST(ExtrapolatedPointTest, ZeroDistanceReturnsOrigin)
 {
   lanelet::ConstPoint3d p1(1, 1.0, 2.0, 3.0);
   lanelet::ConstPoint3d p2(2, 4.0, 5.0, 6.0);
   double distance = 0.0;
 
-  auto interpolated_pt = lanelet2_utils::extrapolate_point(p1, p2, distance, false);
+  auto interpolated_pt = lanelet2_utils::extrapolate_point(p1, p2, distance);
   ASSERT_TRUE(interpolated_pt.has_value());
   auto point = *interpolated_pt;
 
-  EXPECT_NEAR(point.x(), p1.x(), 1e-6);
-  EXPECT_NEAR(point.y(), p1.y(), 1e-6);
-  EXPECT_NEAR(point.z(), p1.z(), 1e-6);
+  EXPECT_NEAR(point.x(), p2.x(), 1e-6);
+  EXPECT_NEAR(point.y(), p2.y(), 1e-6);
+  EXPECT_NEAR(point.z(), p2.z(), 1e-6);
 }
 
-// Test 4: Zero distance interpolation
+// Test 3: Zero distance interpolation
 TEST(InterpolatePointTest, ZeroDistanceReturnsFirstOrLast)
 {
   lanelet::ConstPoint3d p1(1, 1.0, 2.0, 3.0);
   lanelet::ConstPoint3d p2(2, 4.0, 5.0, 6.0);
   double distance = 0.0;
 
-  auto interpolated_pt_first = lanelet2_utils::interpolate_point(p1, p2, distance, true);
-  auto interpolated_pt_last = lanelet2_utils::interpolate_point(p1, p2, distance, false);
+  auto interpolated_pt_first = lanelet2_utils::interpolate_point(p1, p2, distance);
   ASSERT_TRUE(interpolated_pt_first.has_value());
-  ASSERT_TRUE(interpolated_pt_last.has_value());
-
   EXPECT_NEAR(interpolated_pt_first->x(), p1.x(), 1e-6);
-  EXPECT_NEAR(interpolated_pt_last->x(), p2.x(), 1e-6);
 }
 
-// Test 5: Interpolation at exact segment length
+// Test 4: Interpolation at exact segment length
 TEST(InterpolatePointTest, AtSegmentEnd)
 {
   lanelet::ConstPoint3d p1(1, 1.0, 2.0, 3.0);
@@ -131,7 +111,7 @@ TEST(InterpolatePointTest, AtSegmentEnd)
   EXPECT_NEAR(interpolated_pt_backward->x(), p1.x(), 1e-6);
 }
 
-// Test 6: out‑of‑bounds interpolation (returns nullopt)
+// Test 5: out‑of‑bounds interpolation (returns nullopt)
 TEST(InterpolatePointTest, OutOfBoundsDistanceReturnsNullopt)
 {
   lanelet::ConstPoint3d p1(1, 1.0, 2.0, 3.0);
@@ -144,111 +124,18 @@ TEST(InterpolatePointTest, OutOfBoundsDistanceReturnsNullopt)
   EXPECT_FALSE(interpolated_pt_neg.has_value());
 }
 
-// Test 7: interpolate_linestring from first
-TEST(LineStringTest, InterpolatePointFromFirst)
-{
-  lanelet::ConstPoint3d p1(1, 0.0, 0.0, 0.0);
-  lanelet::ConstPoint3d p2(2, 10.0, 0.0, 0.0);
-  lanelet::ConstPoint3d p3(3, 20.0, 0.0, 0.0);
-  std::vector<lanelet::Point3d> pts = {
-    lanelet::Point3d(p1), lanelet::Point3d(p2), lanelet::Point3d(p3)};
-  lanelet::ConstLineString3d line(lanelet::InvalId, pts);
-
-  double s = 15.0;
-  bool from_first = true;
-  auto interpolated_pt = lanelet2_utils::interpolate_linestring(line, s, from_first);
-
-  ASSERT_TRUE(interpolated_pt.has_value());
-  EXPECT_NEAR(interpolated_pt->x(), 15.0, 1e-6);
-  EXPECT_NEAR(interpolated_pt->y(), 0.0, 1e-6);
-  EXPECT_NEAR(interpolated_pt->z(), 0.0, 1e-6);
-}
-
-// Test 8: interpolate_linestring from last
-TEST(LineStringTest, InterpolatePointFromLast)
-{
-  lanelet::ConstPoint3d p1(1, 0.0, 0.0, 0.0);
-  lanelet::ConstPoint3d p2(2, 10.0, 0.0, 0.0);
-  lanelet::ConstPoint3d p3(3, 20.0, 0.0, 0.0);
-  std::vector<lanelet::Point3d> pts = {
-    lanelet::Point3d(p1), lanelet::Point3d(p2), lanelet::Point3d(p3)};
-  lanelet::ConstLineString3d line(lanelet::InvalId, pts);
-
-  double s = 5.0;
-  bool from_first = false;
-  auto interpolated_pt = lanelet2_utils::interpolate_linestring(line, s, from_first);
-
-  ASSERT_TRUE(interpolated_pt.has_value());
-  EXPECT_NEAR(interpolated_pt->x(), 15.0, 1e-6);
-  EXPECT_NEAR(interpolated_pt->y(), 0.0, 1e-6);
-  EXPECT_NEAR(interpolated_pt->z(), 0.0, 1e-6);
-}
-
-// Test 9: extrapolate_linestring forward
-TEST(LineStringTest, ExtrapolatePointForward)
-{
-  std::vector<lanelet::Point3d> pts = {
-    lanelet::Point3d{lanelet::ConstPoint3d(1, 0.0, 0.0, 0.0)},
-    lanelet::Point3d{lanelet::ConstPoint3d(2, 10.0, 0.0, 0.0)},
-    lanelet::Point3d{lanelet::ConstPoint3d(3, 20.0, 0.0, 0.0)}};
-  lanelet::ConstLineString3d line{lanelet::InvalId, pts};
-
-  auto interpolated_pt = lanelet2_utils::extrapolate_linestring(line, 5.0, false);
-  ASSERT_TRUE(interpolated_pt.has_value());
-
-  const auto & p = *interpolated_pt;
-  EXPECT_NEAR(p.x(), 25.0, 1e-6);
-  EXPECT_NEAR(p.y(), 0.0, 1e-6);
-  EXPECT_NEAR(p.z(), 0.0, 1e-6);
-}
-
-// Test 10: extrapolate_linestring backward
-TEST(LineStringTest, ExtrapolatePointBackward)
-{
-  std::vector<lanelet::Point3d> pts = {
-    lanelet::Point3d{lanelet::ConstPoint3d(1, 0.0, 0.0, 0.0)},
-    lanelet::Point3d{lanelet::ConstPoint3d(2, 10.0, 0.0, 0.0)},
-    lanelet::Point3d{lanelet::ConstPoint3d(3, 20.0, 0.0, 0.0)}};
-  lanelet::ConstLineString3d line{lanelet::InvalId, pts};
-
-  auto interpolated_pt = lanelet2_utils::extrapolate_linestring(line, 5.0, true);
-  ASSERT_TRUE(interpolated_pt.has_value());
-
-  const auto & p = *interpolated_pt;
-  EXPECT_NEAR(p.x(), -5.0, 1e-6);
-  EXPECT_NEAR(p.y(), 0.0, 1e-6);
-  EXPECT_NEAR(p.z(), 0.0, 1e-6);
-}
-
-// Test 11: extrapolate_linestring zero from first (0 distance)
-TEST(LineStringTest, ExtrapolateZeroDistanceFromStart)
-{
-  std::vector<lanelet::Point3d> pts = {
-    lanelet::Point3d{lanelet::ConstPoint3d(1, 5.0, 7.0, 9.0)},
-    lanelet::Point3d{lanelet::ConstPoint3d(2, 6.0, 8.0, 9.5)}};
-  lanelet::ConstLineString3d line{lanelet::InvalId, pts};
-
-  auto interpolated_pt = lanelet2_utils::extrapolate_linestring(line, 0.0, true);
-  ASSERT_TRUE(interpolated_pt.has_value());
-
-  const auto & p = *interpolated_pt;
-  EXPECT_NEAR(p.x(), 5.0, 1e-6);
-  EXPECT_NEAR(p.y(), 7.0, 1e-6);
-  EXPECT_NEAR(p.z(), 9.0, 1e-6);
-}
-
-// Test 12: interpolate_lanelet test from map
+// Test 6: interpolate_lanelet test from map
 TEST_F(ExtrapolatedLaneletTest, InterpolateLanelet)
 {
   const auto ll = lanelet_map_ptr_->laneletLayer.get(2287);
-  auto opt_pt = lanelet2_utils::interpolate_lanelet(ll, 3.0, true);
+  auto opt_pt = lanelet2_utils::interpolate_lanelet(ll, 3.0);
   ASSERT_TRUE(opt_pt.has_value());
   EXPECT_NEAR(opt_pt->x(), 164.269030, 1e-6);
   EXPECT_NEAR(opt_pt->y(), 181.097588, 1e-6);
   EXPECT_NEAR(opt_pt->z(), 100.000000, 1e-6);
 }
 
-// Test 13: interpolate_lanelet_sequence test from map
+// Test 7: interpolate_lanelet_sequence test from map
 TEST_F(ExtrapolatedLaneletTest, InterpolateLaneletSequence)
 {
   lanelet::ConstLanelets lanelets;
@@ -256,14 +143,14 @@ TEST_F(ExtrapolatedLaneletTest, InterpolateLaneletSequence)
   for (const auto & id : {2287, 2288, 2289}) {
     lanelets.push_back(lanelet_map_ptr_->laneletLayer.get(id));
   }
-  auto opt_pt = lanelet2_utils::interpolate_lanelet_sequence(lanelets, 3.0, true);
+  auto opt_pt = lanelet2_utils::interpolate_lanelet_sequence(lanelets, 3.0);
   ASSERT_TRUE(opt_pt.has_value());
   EXPECT_NEAR(opt_pt->x(), 164.269030, 1e-6);
   EXPECT_NEAR(opt_pt->y(), 181.097588, 1e-6);
   EXPECT_NEAR(opt_pt->z(), 100.000000, 1e-6);
 }
 
-// Test 14: concatenate_center_line empty input
+// Test 8: concatenate_center_line empty input
 TEST(ConcatenateCenterLineTest, EmptyInputReturnsNullopt)
 {
   lanelet::ConstLanelets empty_seq;
@@ -271,7 +158,7 @@ TEST(ConcatenateCenterLineTest, EmptyInputReturnsNullopt)
   EXPECT_FALSE(opt_ls.has_value());
 }
 
-// Test 15: concatenate_center_line map
+// Test 9: concatenate_center_line map
 TEST_F(ExtrapolatedLaneletTest, ConcatenateCenterlinesSequence)
 {
   lanelet::ConstLanelets lanelets;
@@ -299,7 +186,7 @@ TEST_F(ExtrapolatedLaneletTest, ConcatenateCenterlinesSequence)
   }
 }
 
-// Test 16: getLineStringFromArcLength empty linestring
+// Test 10: getLineStringFromArcLength empty linestring
 TEST(GetLineStringFromArcLength, EmptyLinestringReturnsNullopt)
 {
   lanelet::ConstLineString3d empty{lanelet::InvalId, lanelet::Points3d{}};
@@ -307,7 +194,7 @@ TEST(GetLineStringFromArcLength, EmptyLinestringReturnsNullopt)
   EXPECT_FALSE(opt.has_value());
 }
 
-// Test 17: getLineStringFromArcLength out of bounds
+// Test 11: getLineStringFromArcLength out of bounds
 TEST(GetLineStringFromArcLength, OutOfBoundsReturnsNullopt)
 {
   std::vector<lanelet::Point3d> pts = {
@@ -321,7 +208,7 @@ TEST(GetLineStringFromArcLength, OutOfBoundsReturnsNullopt)
   EXPECT_FALSE(opt2.has_value());
 }
 
-// Test 18: getLineStringFromArcLength full range
+// Test 12: getLineStringFromArcLength full range
 TEST(GetLineStringFromArcLength, FullRangeReturnsAllPoints)
 {
   std::vector<lanelet::Point3d> pts = {
@@ -340,7 +227,7 @@ TEST(GetLineStringFromArcLength, FullRangeReturnsAllPoints)
   }
 }
 
-// Test 19: getLineStringFromArcLength partial range
+// Test 13: getLineStringFromArcLength partial range
 TEST(GetLineStringFromArcLength, PartialRangeExtractsCorrectSegment)
 {
   std::vector<lanelet::Point3d> pts = {
@@ -357,7 +244,7 @@ TEST(GetLineStringFromArcLength, PartialRangeExtractsCorrectSegment)
   EXPECT_NEAR(out[2].x(), 1.5, 1e-6);
 }
 
-// Test 20: get_pose_from_2d_arc_length out of bound
+// Test 14: get_pose_from_2d_arc_length out of bound
 TEST_F(ExtrapolatedLaneletTest, GetPoseFrom2dArcLength_OutOfBounds)
 {
   lanelet::ConstLanelets lanelets;
@@ -368,7 +255,7 @@ TEST_F(ExtrapolatedLaneletTest, GetPoseFrom2dArcLength_OutOfBounds)
   EXPECT_FALSE(autoware::lanelet2_utils::get_pose_from_2d_arc_length(lanelets, 1e6).has_value());
 }
 
-// Test 21: get_pose_from_2d_arc_length
+// Test 15: get_pose_from_2d_arc_length
 TEST_F(ExtrapolatedLaneletTest, GetPoseFrom2dArcLength_OnRealMapLanelets)
 {
   lanelet::ConstLanelets lanelets;
