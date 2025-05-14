@@ -21,6 +21,7 @@ if(BUILD_TESTING)
     test/topology.cpp
     test/intersection.cpp
     test/stop_line.cpp
+    test/geometry.cpp
   )
 
   foreach (test_file IN LISTS test_files)
