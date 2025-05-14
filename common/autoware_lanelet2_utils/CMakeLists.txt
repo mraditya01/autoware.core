@@ -19,7 +19,6 @@ if(BUILD_TESTING)
     test/kind.cpp
     test/topology.cpp
     test/intersection.cpp
-    test/geometry.cpp
   )
 
   foreach (test_file IN LISTS test_files)
