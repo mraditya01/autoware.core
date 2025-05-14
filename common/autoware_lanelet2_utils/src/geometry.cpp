@@ -18,7 +18,9 @@
 #include <geometry_msgs/msg/pose.hpp>
 #include <geometry_msgs/msg/quaternion.hpp>
 
+#include <lanelet2_core/geometry/LineString.h>
 #include <lanelet2_core/primitives/Lanelet.h>
+#include <lanelet2_core/primitives/LaneletSequence.h>
 #include <lanelet2_core/primitives/Point.h>
 
 #include <algorithm>
@@ -27,51 +29,31 @@
 
 namespace autoware::lanelet2_utils
 {
-double compute_linestring_length3d(const lanelet::ConstLineString3d & linestring)
-{
-  double total_length = 0.0;
-  for (size_t i = 0; i + 1 < linestring.size(); ++i) {
-    const auto & p1 = linestring[i].basicPoint();
-    const auto & p2 = linestring[i + 1].basicPoint();
-
-    double dx = p2.x() - p1.x();
-    double dy = p2.y() - p1.y();
-    double dz = p2.z() - p1.z();
-
-    total_length += std::sqrt(dx * dx + dy * dy + dz * dz);
-  }
-  return total_length;
-}
-
-std::optional<lanelet::ConstPoint3d> extrapolate_point(
+lanelet::ConstPoint3d extrapolate_point(
   const lanelet::ConstPoint3d & first, const lanelet::ConstPoint3d & second, const double distance)
 {
+  double segment_length = lanelet::geometry::distance3d(first, second);
+  if (segment_length == 0.0) {
+    return first;
+  }
+
   double dx = second.x() - first.x();
   double dy = second.y() - first.y();
   double dz = second.z() - first.z();
-
-  double segment_length = std::hypot(dx, dy, dz);
-  if (segment_length == 0.0) {
-    return std::nullopt;
-  }
 
   double normalized = distance / segment_length;
   double new_x, new_y, new_z;
   new_x = second.x() + normalized * dx;
   new_y = second.y() + normalized * dy;
   new_z = second.z() + normalized * dz;
+
   return lanelet::ConstPoint3d(lanelet::InvalId, new_x, new_y, new_z);
 }
 
 std::optional<lanelet::ConstPoint3d> interpolate_point(
-  const lanelet::ConstPoint3d & first, const lanelet::ConstPoint3d & second, const double distance,
-  const bool from_first)
+  const lanelet::ConstPoint3d & first, const lanelet::ConstPoint3d & second, const double distance)
 {
-  double dx = second.x() - first.x();
-  double dy = second.y() - first.y();
-  double dz = second.z() - first.z();
-
-  double segment_length = std::hypot(dx, dy, dz);
+  double segment_length = lanelet::geometry::distance3d(first, second);
 
   if (segment_length == 0.0 || distance < 0.0 || distance > segment_length) {
     return std::nullopt;
@@ -80,15 +62,13 @@ std::optional<lanelet::ConstPoint3d> interpolate_point(
   double normalized = distance / segment_length;
   double new_x, new_y, new_z;
 
-  if (from_first) {
-    new_x = first.x() + normalized * dx;
-    new_y = first.y() + normalized * dy;
-    new_z = first.z() + normalized * dz;
-  } else {
-    new_x = second.x() - normalized * dx;
-    new_y = second.y() - normalized * dy;
-    new_z = second.z() - normalized * dz;
-  }
+  double dx = second.x() - first.x();
+  double dy = second.y() - first.y();
+  double dz = second.z() - first.z();
+
+  new_x = first.x() + normalized * dx;
+  new_y = first.y() + normalized * dy;
+  new_z = first.z() + normalized * dz;
 
   return lanelet::ConstPoint3d(lanelet::InvalId, new_x, new_y, new_z);
 }
@@ -98,63 +78,29 @@ std::optional<lanelet::ConstPoint3d> interpolate_lanelet(
 {
   std::vector<lanelet::Point3d> points;
   const auto linestring = lanelet.centerline();
-
-  if (linestring.size() < 2) {
-    return std::nullopt;
-  }
-
-  const double total_length = compute_linestring_length3d(linestring);
-  if (distance < 0.0 || distance > total_length) {
-    return std::nullopt;
-  }
-
-  double accumulated_length = 0.0;
-
-  for (std::size_t idx = 0; idx < linestring.size() - 1; ++idx) {
-    const auto & p1 = linestring[idx];
-    const auto & p2 = linestring[idx + 1];
-    double segment_length = std::hypot(p2.x() - p1.x(), p2.y() - p1.y(), p2.z() - p1.z());
-    if (accumulated_length + segment_length >= distance) {
-      double residue = distance - accumulated_length;
-      return interpolate_point(linestring[idx], linestring[idx + 1], residue);
-    }
-    accumulated_length += segment_length;
-  }
-  return std::nullopt;
+  return interpolate_linestring(linestring, distance);
 }
 
 std::optional<lanelet::ConstPoint3d> interpolate_lanelet_sequence(
   const lanelet::ConstLanelets & lanelet_sequence, double distance)
 {
-  for (const auto & llt : lanelet_sequence) {
-    auto interpolated_pt = interpolate_lanelet(llt, distance);
-    if (interpolated_pt.has_value()) {
-      return interpolated_pt;
-    }
+  const auto merged_sequence = lanelet::LaneletSequence(lanelet_sequence);
+  const auto centerline = merged_sequence.centerline();
+  auto interpolated_pt = interpolate_linestring(centerline, distance);
+  if (interpolated_pt.has_value()) {
+    return interpolated_pt;
   }
   return std::nullopt;
 }
 
-std::optional<lanelet::ConstLineString3d> concatenate_center_line(
+std::optional<lanelet::CompoundLineString3d> concatenate_center_line(
   const lanelet::ConstLanelets & lanelets)
 {
   if (lanelets.empty()) {
     return std::nullopt;
   }
-
-  std::vector<lanelet::Point3d> pts;
-  pts.reserve(lanelets.size() * 10);
-
-  for (const auto & llt : lanelets) {
-    const auto & center_line = llt.centerline();
-    for (const auto & cl_point : center_line) {
-      if (pts.empty() || pts.back().basicPoint() != cl_point.basicPoint()) {
-        pts.emplace_back(cl_point);
-      }
-    }
-  }
-
-  return lanelet::ConstLineString3d{lanelet::InvalId, pts};
+  const auto merged_sequence = lanelet::LaneletSequence(lanelets);
+  return merged_sequence.centerline();
 }
 
 std::optional<lanelet::LineString3d> get_linestring_from_arc_length(
@@ -167,7 +113,7 @@ std::optional<lanelet::LineString3d> get_linestring_from_arc_length(
     return std::nullopt;
   }
 
-  const double total_length = compute_linestring_length3d(linestring);
+  const double total_length = lanelet::geometry::length(linestring);
   if (s1 < 0.0 || s2 > total_length || s1 >= s2) {
     return std::nullopt;
   }
@@ -175,7 +121,7 @@ std::optional<lanelet::LineString3d> get_linestring_from_arc_length(
   for (size_t i = 0; i < linestring.size() - 1; i++) {
     const auto & p1 = linestring[i];
     const auto & p2 = linestring[i + 1];
-    const double length = std::hypot(p2.x() - p1.x(), p2.y() - p1.y(), p2.z() - p1.z());
+    const double length = lanelet::geometry::distance3d(p1, p2);
 
     if (accumulated_length + length > s1) {
       start_index = i;
@@ -198,7 +144,7 @@ std::optional<lanelet::LineString3d> get_linestring_from_arc_length(
   for (size_t i = start_index; i < linestring.size() - 1; i++) {
     const auto & p1 = linestring[i];
     const auto & p2 = linestring[i + 1];
-    const double length = std::hypot(p2.x() - p1.x(), p2.y() - p1.y(), p2.z() - p1.z());
+    const double length = lanelet::geometry::distance3d(p1, p2);
     if (accumulated_length + length > s2) {
       end_index = i;
       break;
@@ -234,7 +180,7 @@ std::optional<geometry_msgs::msg::Pose> get_pose_from_2d_arc_length(
     for (auto it = centerline.begin(); std::next(it) != centerline.end(); ++it) {
       const auto & pt = *it;
       const auto & next_pt = *std::next(it);
-      double distance2d = std::hypot(next_pt.x() - pt.x(), next_pt.y() - pt.y());
+      const double distance2d = lanelet::geometry::distance3d(pt, next_pt);
 
       if (accumulated_distance2d + distance2d > s) {
         double rem = s - accumulated_distance2d;

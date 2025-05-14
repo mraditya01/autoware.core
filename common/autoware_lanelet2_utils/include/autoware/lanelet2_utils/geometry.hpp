@@ -18,6 +18,7 @@
 #include <geometry_msgs/msg/pose.hpp>
 
 #include <lanelet2_core/Forward.h>
+#include <lanelet2_core/geometry/LineString.h>
 
 #include <optional>
 
@@ -31,7 +32,7 @@ namespace autoware::lanelet2_utils
  * @param [in] distance distance to extrapolate.
  * @return lanelet::ConstPoint3d The extrapolated point.
  */
-std::optional<lanelet::ConstPoint3d> extrapolate_point(
+lanelet::ConstPoint3d extrapolate_point(
   const lanelet::ConstPoint3d & first, const lanelet::ConstPoint3d & second, const double distance);
 
 /**
@@ -39,14 +40,11 @@ std::optional<lanelet::ConstPoint3d> extrapolate_point(
  * @param [in] first first endpoint of the segment.
  * @param [in] second second endpoint of the segment.
  * @param [in] distance desired distance from the reference endpoint along the segment.
- * @param [in] from_first measure from the first point (if true) or from the second (if false) (true
- * by default).
  * @return lanelet::ConstPoint3d The interpolated point.
  */
 
 std::optional<lanelet::ConstPoint3d> interpolate_point(
-  const lanelet::ConstPoint3d & first, const lanelet::ConstPoint3d & second, const double distance,
-  const bool from_first = true);
+  const lanelet::ConstPoint3d & first, const lanelet::ConstPoint3d & second, const double distance);
 
 /**
  * @brief find an interpolated point from a lanelet at a given distance.
@@ -61,6 +59,8 @@ std::optional<lanelet::ConstPoint3d> interpolate_lanelet(
  * @brief find an interpolated point from a lanelet at a given distance.
  * @param [in] lanelet input lanelet.
  * @param [in] distance desired distance.
+ * @param [in] from_first the distance is measured from the beginning (true) or from the end
+ * (false).
  * @return lanelet::ConstPoint3d; the first interpolated point within sequence of
  * lanelet.centerline().
  * @note return as soon as you hit a segment in any lanelet whose cumulative 2D‑length
@@ -72,9 +72,9 @@ std::optional<lanelet::ConstPoint3d> interpolate_lanelet_sequence(
 /**
  * @brief concatenate all center line of inputted lanelet sequence.
  * @param [in] lanelet input lanelet.
- * @return lanelet.centerline of all lanelet as lanelet::ConstLineString3d.
+ * @return lanelet.centerline of all lanelet as lanelet::CompoundLineString3d.
  */
-std::optional<lanelet::ConstLineString3d> concatenate_center_line(
+std::optional<lanelet::CompoundLineString3d> concatenate_center_line(
   const lanelet::ConstLanelets & lanelets);
 
 /**
@@ -98,6 +98,39 @@ std::optional<lanelet::LineString3d> get_linestring_from_arc_length(
  */
 std::optional<geometry_msgs::msg::Pose> get_pose_from_2d_arc_length(
   const lanelet::ConstLanelets & lanelet_sequence, const double s);
+
+/**
+ * @brief find an interpolated point from a linestring at a given distance.
+ * @param [in] lanelet input linestring.
+ * @param [in] distance desired distance.
+ * @return lanelet::ConstPoint3d; the interpolated point from linestring.
+ */
+template <typename Line>
+std::optional<lanelet::ConstPoint3d> interpolate_linestring(
+  const Line & linestring, double distance)
+{
+  if (linestring.size() < 2) {
+    return std::nullopt;
+  }
+
+  double total_length = lanelet::geometry::length(linestring);
+  if (distance < 0.0 || distance > total_length) {
+    return std::nullopt;
+  }
+
+  double accumulated = 0.0;
+  for (std::size_t i = 0; i + 1 < linestring.size(); ++i) {
+    const auto & p1 = linestring[i];
+    const auto & p2 = linestring[i + 1];
+    double seg_len = lanelet::geometry::distance3d(p1, p2);
+    if (accumulated + seg_len >= distance) {
+      return interpolate_point(p1, p2, distance - accumulated);
+    }
+    accumulated += seg_len;
+  }
+
+  return std::nullopt;
+}
 }  // namespace autoware::lanelet2_utils
 
 #endif  // AUTOWARE__LANELET2_UTILS__GEOMETRY_HPP_

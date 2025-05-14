@@ -59,12 +59,10 @@ TEST(ExtrapolatedPointTest, ForwardExtrapolation)
   double distance = 5.0;
 
   auto interpolated_pt = lanelet2_utils::extrapolate_point(p1, p2, distance);
-  ASSERT_TRUE(interpolated_pt.has_value());
-  auto point = *interpolated_pt;
 
-  EXPECT_NEAR(point.x(), 15.0, 1e-6);
-  EXPECT_NEAR(point.y(), 0.0, 1e-6);
-  EXPECT_NEAR(point.z(), 0.0, 1e-6);
+  EXPECT_NEAR(interpolated_pt.x(), 15.0, 1e-6);
+  EXPECT_NEAR(interpolated_pt.y(), 0.0, 1e-6);
+  EXPECT_NEAR(interpolated_pt.z(), 0.0, 1e-6);
 }
 
 // Test 2: Zero distance extrapolation
@@ -75,12 +73,10 @@ TEST(ExtrapolatedPointTest, ZeroDistanceReturnsOrigin)
   double distance = 0.0;
 
   auto interpolated_pt = lanelet2_utils::extrapolate_point(p1, p2, distance);
-  ASSERT_TRUE(interpolated_pt.has_value());
-  auto point = *interpolated_pt;
 
-  EXPECT_NEAR(point.x(), p2.x(), 1e-6);
-  EXPECT_NEAR(point.y(), p2.y(), 1e-6);
-  EXPECT_NEAR(point.z(), p2.z(), 1e-6);
+  EXPECT_NEAR(interpolated_pt.x(), p2.x(), 1e-6);
+  EXPECT_NEAR(interpolated_pt.y(), p2.y(), 1e-6);
+  EXPECT_NEAR(interpolated_pt.z(), p2.z(), 1e-6);
 }
 
 // Test 3: Zero distance interpolation
@@ -102,13 +98,9 @@ TEST(InterpolatePointTest, AtSegmentEnd)
   lanelet::ConstPoint3d p2(2, 4.0, 5.0, 6.0);
   double segment_length = std::hypot(4.0 - 1.0, 5.0 - 2.0, 6.0 - 3.0);
 
-  auto interpolated_pt_forward = lanelet2_utils::interpolate_point(p1, p2, segment_length, true);
-  auto interpolated_pt_backward = lanelet2_utils::interpolate_point(p1, p2, segment_length, false);
+  auto interpolated_pt_forward = lanelet2_utils::interpolate_point(p1, p2, segment_length);
   ASSERT_TRUE(interpolated_pt_forward.has_value());
-  ASSERT_TRUE(interpolated_pt_backward.has_value());
-
   EXPECT_NEAR(interpolated_pt_forward->x(), p2.x(), 1e-6);
-  EXPECT_NEAR(interpolated_pt_backward->x(), p1.x(), 1e-6);
 }
 
 // Test 5: out‑of‑bounds interpolation (returns nullopt)
@@ -118,8 +110,8 @@ TEST(InterpolatePointTest, OutOfBoundsDistanceReturnsNullopt)
   lanelet::ConstPoint3d p2(2, 4.0, 5.0, 6.0);
   double segment_length = std::hypot(4.0 - 1.0, 5.0 - 2.0, 6.0 - 3.0);
 
-  auto interpolated_pt_pos = lanelet2_utils::interpolate_point(p1, p2, segment_length + 1.0, true);
-  auto interpolated_pt_neg = lanelet2_utils::interpolate_point(p1, p2, -1.0, true);
+  auto interpolated_pt_pos = lanelet2_utils::interpolate_point(p1, p2, segment_length + 1.0);
+  auto interpolated_pt_neg = lanelet2_utils::interpolate_point(p1, p2, -1.0);
   EXPECT_FALSE(interpolated_pt_pos.has_value());
   EXPECT_FALSE(interpolated_pt_neg.has_value());
 }
