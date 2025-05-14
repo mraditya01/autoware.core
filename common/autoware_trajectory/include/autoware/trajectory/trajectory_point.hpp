@@ -24,7 +24,7 @@
 #include <utility>
 #include <vector>
 
-namespace autoware::trajectory
+namespace autoware::experimental::trajectory
 {
 template <>
 class Trajectory<autoware_planning_msgs::msg::TrajectoryPoint>
@@ -47,15 +47,26 @@ protected:
   std::shared_ptr<detail::InterpolatedArray<double>> rear_wheel_angle_rad_{
     nullptr};  //!< Rear wheel angle in rad} Warning, this is not used
 
+  /**
+   * @brief add the event function to
+   * longitudinal_velocity_mps/lateral_velocity_mps/heading_rate_mps/acceleration_mps2/front_wheel_angle_rad/rear_wheel_angle_rad
+   * interpolator
+   * @note when a new base is added to longitudinal_velocity_mps for example, the addition is also
+   * notified and update_base() is triggered.
+   */
+  virtual void add_base_addition_callback();
+
 public:
   Trajectory();
   ~Trajectory() override = default;
   Trajectory(const Trajectory & rhs);
-  Trajectory(Trajectory && rhs) = default;
+  Trajectory(Trajectory && rhs) noexcept;
   Trajectory & operator=(const Trajectory & rhs);
-  Trajectory & operator=(Trajectory && rhs) = default;
+  Trajectory & operator=(Trajectory && rhs) noexcept;
 
-  std::vector<double> get_internal_bases() const override;
+  [[deprecated]] std::vector<double> get_internal_bases() const override;
+
+  std::vector<double> get_underlying_bases() const override;
 
   detail::InterpolatedArray<double> & longitudinal_velocity_mps()
   {
@@ -112,6 +123,13 @@ public:
    * @return Point on the trajectory
    */
   PointType compute(const double s) const;
+
+  /**
+   * @brief Compute the points on the trajectory at given s values
+   * @param ss Arc lengths
+   * @return Points on the trajectory
+   */
+  std::vector<PointType> compute(const std::vector<double> & ss) const;
 
   /**
    * @brief Restore the trajectory points
@@ -214,6 +232,6 @@ public:
   };
 };
 
-}  // namespace autoware::trajectory
+}  // namespace autoware::experimental::trajectory
 
 #endif  // AUTOWARE__TRAJECTORY__TRAJECTORY_POINT_HPP_

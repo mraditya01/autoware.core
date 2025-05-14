@@ -22,12 +22,13 @@
 
 #include <geometry_msgs/msg/point.hpp>
 
+#include <algorithm>
 #include <cstddef>
 #include <memory>
 #include <utility>
 #include <vector>
 
-namespace autoware::trajectory
+namespace autoware::experimental::trajectory
 {
 /**
  * @brief Trajectory class for geometry_msgs::msg::Point
@@ -36,6 +37,9 @@ template <>
 class Trajectory<geometry_msgs::msg::Point>
 {
   using PointType = geometry_msgs::msg::Point;
+
+  template <class PointType>
+  friend class Trajectory;
 
 protected:
   std::shared_ptr<interpolator::InterpolatorInterface<double>> x_interpolator_{
@@ -48,6 +52,11 @@ protected:
   std::vector<double> bases_;  //!< Axis of the trajectory
 
   double start_{0.0}, end_{0.0};  //!< Start and end of the arc length of the trajectory
+
+  /**
+   * @brief add the input s if it is not contained in bases_
+   */
+  void update_bases(const double s);
 
   /**
    * @brief Validate the arc length is within the trajectory
@@ -64,10 +73,17 @@ public:
   Trajectory & operator=(Trajectory && rhs) = default;
 
   /**
-   * @brief Get the internal bases(arc lengths) of the trajectory
+   * @brief Get the underlying arc lengths of the trajectory
    * @return Vector of bases(arc lengths)
    */
-  virtual std::vector<double> get_internal_bases() const;
+  [[deprecated]] virtual std::vector<double> get_internal_bases() const;
+
+  /**
+   * @brief Get the underlying arc lengths of the trajectory
+   * @return Vector of bases(arc lengths)
+   */
+  virtual std::vector<double> get_underlying_bases() const;
+
   /**
    * @brief Get the length of the trajectory
    * @return Length of the trajectory
@@ -80,6 +96,13 @@ public:
    * @return Point on the trajectory
    */
   PointType compute(const double s) const;
+
+  /**
+   * @brief Compute the points on the trajectory at given s values
+   * @param ss Arc lengths
+   * @return Points on the trajectory
+   */
+  std::vector<PointType> compute(const std::vector<double> & ss) const;
 
   /**
    * @brief Build the trajectory from the points
@@ -96,6 +119,13 @@ public:
   double azimuth(const double s) const;
 
   /**
+   * @brief Get the azimuth angles at given s values
+   * @param ss Arc lengths
+   * @return Azimuth in radians
+   */
+  std::vector<double> azimuth(const std::vector<double> & ss) const;
+
+  /**
    * @brief Get the elevation angle at a given s value
    * @param s Arc length
    * @return Elevation in radians
@@ -110,6 +140,13 @@ public:
   double curvature(const double s) const;
 
   /**
+   * @brief Get the curvature at a given s values
+   * @param ss Arc lengths
+   * @return Curvature
+   */
+  std::vector<double> curvature(const std::vector<double> & ss) const;
+
+  /**
    * @brief Restore the trajectory points
    * @param min_points Minimum number of points
    * @return Vector of points
@@ -117,6 +154,48 @@ public:
   std::vector<PointType> restore(const size_t min_points = 4) const;
 
   void crop(const double start, const double length);
+
+  /**
+   * @brief return the list of base values from start_ to end_ with the given interval
+   * @param tick the tick of interval
+   * @return array of double from start_ to end_ including the end_
+   */
+  std::vector<double> base_arange(const double tick) const
+  {
+    std::vector<double> ss;
+    for (double s = start_; s <= end_; s += tick) {
+      ss.push_back(s);
+    }
+    if (ss.back() != end_) {
+      ss.push_back(end_);
+    }
+    return ss;
+  }
+
+  /**
+   * @brief return the list of base values from start_ to end_ with the given interval
+   * @param interval the interval indicating start and end
+   * @param tick the tick of interval
+   * @param end_inclusive flag to include the interval end even if it is not exactly on the last
+   * tick step does not match
+   * @return array of double within [start_ to end_ ] and given interval
+   */
+  std::vector<double> base_arange(
+    const std::pair<double, double> interval, const double tick,
+    const bool end_inclusive = true) const
+  {
+    const auto & [start_input, end_input] = interval;
+    const auto start = std::max<double>(start_, start_input);
+    const auto end = std::min<double>(end_, end_input);
+    std::vector<double> ss;
+    for (double s = start; s <= end; s += tick) {
+      ss.push_back(s);
+    }
+    if (end_inclusive && ss.back() != end) {
+      ss.push_back(end);
+    }
+    return ss;
+  }
 
   class Builder
   {
@@ -155,6 +234,6 @@ public:
   };
 };
 
-}  // namespace autoware::trajectory
+}  // namespace autoware::experimental::trajectory
 
 #endif  // AUTOWARE__TRAJECTORY__POINT_HPP_

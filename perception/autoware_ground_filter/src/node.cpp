@@ -17,10 +17,12 @@
 #include "autoware/ground_filter/ground_filter.hpp"
 #include "autoware/ground_filter/sanity_check.hpp"
 
-#include <autoware_utils/geometry/geometry.hpp>
-#include <autoware_utils/math/normalization.hpp>
-#include <autoware_utils/math/unit_conversion.hpp>
+#include <autoware_utils_geometry/geometry.hpp>
+#include <autoware_utils_math/normalization.hpp>
+#include <autoware_utils_math/unit_conversion.hpp>
+#include <autoware_utils_tf/transform_listener.hpp>
 #include <autoware_vehicle_info_utils/vehicle_info_utils.hpp>
+#include <pcl_ros/transforms.hpp>
 #include <rclcpp/rclcpp.hpp>
 
 #include <memory>
@@ -52,11 +54,11 @@ using PointCloud2 = sensor_msgs::msg::PointCloud2;
 using PointCloud2ConstPtr = sensor_msgs::msg::PointCloud2::ConstSharedPtr;
 
 using autoware::vehicle_info_utils::VehicleInfoUtils;
-using autoware_utils::calc_distance3d;
-using autoware_utils::deg2rad;
-using autoware_utils::normalize_degree;
-using autoware_utils::normalize_radian;
-using autoware_utils::ScopedTimeTrack;
+using autoware_utils_debug::ScopedTimeTrack;
+using autoware_utils_geometry::calc_distance3d;
+using autoware_utils_math::deg2rad;
+using autoware_utils_math::normalize_degree;
+using autoware_utils_math::normalize_radian;
 
 GroundFilterComponent::GroundFilterComponent(const rclcpp::NodeOptions & options)
 : rclcpp::Node("GroundFilter", options)
@@ -138,18 +140,20 @@ GroundFilterComponent::GroundFilterComponent(const rclcpp::NodeOptions & options
 
   // initialize debug tool
   {
-    stop_watch_ptr_ = std::make_unique<autoware_utils::StopWatch<std::chrono::milliseconds>>();
-    debug_publisher_ptr_ = std::make_unique<autoware_utils::DebugPublisher>(this, "ground_filter");
+    stop_watch_ptr_ =
+      std::make_unique<autoware_utils_system::StopWatch<std::chrono::milliseconds>>();
+    debug_publisher_ptr_ =
+      std::make_unique<autoware_utils_debug::DebugPublisher>(this, "ground_filter");
     stop_watch_ptr_->tic("cyclic_time");
     stop_watch_ptr_->tic("processing_time");
 
     bool use_time_keeper = rclcpp::Node::declare_parameter<bool>("publish_processing_time_detail");
     if (use_time_keeper) {
       detailed_processing_time_publisher_ =
-        this->create_publisher<autoware_utils::ProcessingTimeDetail>(
+        this->create_publisher<autoware_utils_debug::ProcessingTimeDetail>(
           "~/debug/processing_time_detail_ms", 1);
-      auto time_keeper = autoware_utils::TimeKeeper(detailed_processing_time_publisher_);
-      time_keeper_ = std::make_shared<autoware_utils::TimeKeeper>(time_keeper);
+      auto time_keeper = autoware_utils_debug::TimeKeeper(detailed_processing_time_publisher_);
+      time_keeper_ = std::make_shared<autoware_utils_debug::TimeKeeper>(time_keeper);
 
       // set time keeper to grid
       ground_filter_ptr_->setTimeKeeper(time_keeper_);
@@ -159,7 +163,6 @@ GroundFilterComponent::GroundFilterComponent(const rclcpp::NodeOptions & options
   // pointcloud parameters
   tf_input_frame_ = static_cast<std::string>(declare_parameter("input_frame", ""));
   tf_output_frame_ = static_cast<std::string>(declare_parameter("output_frame", ""));
-  has_static_tf_only_ = static_cast<bool>(declare_parameter("has_static_tf_only", false));
   max_queue_size_ = static_cast<std::size_t>(declare_parameter("max_queue_size", 5));
   use_indices_ = static_cast<bool>(declare_parameter("use_indices", false));
   latched_indices_ = static_cast<bool>(declare_parameter("latched_indices", false));
@@ -187,23 +190,13 @@ GroundFilterComponent::GroundFilterComponent(const rclcpp::NodeOptions & options
   // Set tf_listener, tf_buffer.
   setupTF();
 
-  published_time_publisher_ = std::make_unique<autoware_utils::PublishedTimePublisher>(this);
+  published_time_publisher_ = std::make_unique<autoware_utils_debug::PublishedTimePublisher>(this);
   RCLCPP_DEBUG(this->get_logger(), "[Filter Constructor] successfully created.");
 }
 
 void GroundFilterComponent::setupTF()
 {
-  // Always consider static TF if in & out frames are same
-  if (tf_input_frame_ == tf_output_frame_) {
-    if (!has_static_tf_only_) {
-      RCLCPP_INFO(
-        this->get_logger(),
-        "Input and output frames are the same. Overriding has_static_tf_only to true.");
-    }
-    has_static_tf_only_ = true;
-  }
-  managed_tf_buffer_ =
-    std::make_unique<autoware_utils::ManagedTransformBuffer>(this, has_static_tf_only_);
+  transform_listener_ = std::make_unique<autoware_utils_tf::TransformListener>(this);
 }
 
 void GroundFilterComponent::subscribe()
@@ -253,11 +246,15 @@ bool GroundFilterComponent::calculate_transform_matrix(
     this->get_logger(), "[get_transform_matrix] Transforming input dataset from %s to %s.",
     from.header.frame_id.c_str(), target_frame.c_str());
 
-  if (!managed_tf_buffer_->get_transform(
-        target_frame, from.header.frame_id, transform_info.eigen_transform)) {
+  auto tf_ptr = transform_listener_->get_transform(
+    target_frame, from.header.frame_id, from.header.stamp, rclcpp::Duration::from_seconds(1.0));
+
+  if (!tf_ptr) {
     return false;
   }
 
+  auto eigen_tf = tf2::transformToEigen(*tf_ptr);
+  transform_info.eigen_transform = eigen_tf.matrix().cast<float>();
   transform_info.need_transform = true;
   return true;
 }
@@ -275,7 +272,10 @@ bool GroundFilterComponent::convert_output_costly(
     // Convert the cloud into the different frame
     auto cloud_transformed = std::make_unique<sensor_msgs::msg::PointCloud2>();
 
-    if (!managed_tf_buffer_->transform_pointcloud(tf_output_frame_, *output, *cloud_transformed)) {
+    auto tf_ptr = transform_listener_->get_transform(
+      tf_output_frame_, output->header.frame_id, output->header.stamp,
+      rclcpp::Duration::from_seconds(1.0));
+    if (!tf_ptr) {
       RCLCPP_ERROR(
         this->get_logger(),
         "[convert_output_costly] Error converting output dataset from %s to %s.",
@@ -283,6 +283,8 @@ bool GroundFilterComponent::convert_output_costly(
       return false;
     }
 
+    auto eigen_tf = tf2::transformToEigen(*tf_ptr);
+    pcl_ros::transformPointCloud(eigen_tf.matrix().cast<float>(), *output, *cloud_transformed);
     output = std::move(cloud_transformed);
   }
 
@@ -295,11 +297,15 @@ bool GroundFilterComponent::convert_output_costly(
 
     auto cloud_transformed = std::make_unique<sensor_msgs::msg::PointCloud2>();
 
-    if (!managed_tf_buffer_->transform_pointcloud(
-          tf_input_orig_frame_, *output, *cloud_transformed)) {
+    auto tf_ptr = transform_listener_->get_transform(
+      tf_input_orig_frame_, output->header.frame_id, output->header.stamp,
+      rclcpp::Duration::from_seconds(1.0));
+    if (!tf_ptr) {
       return false;
     }
 
+    auto eigen_tf = tf2::transformToEigen(*tf_ptr);
+    pcl_ros::transformPointCloud(eigen_tf.matrix().cast<float>(), *output, *cloud_transformed);
     output = std::move(cloud_transformed);
   }
 
@@ -391,9 +397,9 @@ void GroundFilterComponent::convertPointcloud(
   const sensor_msgs::msg::PointCloud2::ConstSharedPtr & in_cloud,
   std::vector<PointCloudVector> & out_radial_ordered_points) const
 {
-  std::unique_ptr<autoware_utils::ScopedTimeTrack> st_ptr;
+  std::unique_ptr<autoware_utils_debug::ScopedTimeTrack> st_ptr;
   if (time_keeper_)
-    st_ptr = std::make_unique<autoware_utils::ScopedTimeTrack>(__func__, *time_keeper_);
+    st_ptr = std::make_unique<autoware_utils_debug::ScopedTimeTrack>(__func__, *time_keeper_);
 
   out_radial_ordered_points.resize(radial_dividers_num_);
   PointData current_point;
@@ -404,10 +410,10 @@ void GroundFilterComponent::convertPointcloud(
   const size_t in_cloud_point_step = in_cloud->point_step;
 
   {  // grouping pointcloud by its azimuth angle
-    std::unique_ptr<autoware_utils::ScopedTimeTrack> inner_st_ptr;
+    std::unique_ptr<autoware_utils_debug::ScopedTimeTrack> inner_st_ptr;
     if (time_keeper_)
-      inner_st_ptr =
-        std::make_unique<autoware_utils::ScopedTimeTrack>("azimuth_angle_grouping", *time_keeper_);
+      inner_st_ptr = std::make_unique<autoware_utils_debug::ScopedTimeTrack>(
+        "azimuth_angle_grouping", *time_keeper_);
 
     pcl::PointXYZ input_point;
     for (size_t data_index = 0; data_index + in_cloud_point_step <= in_cloud_data_size;
@@ -430,9 +436,9 @@ void GroundFilterComponent::convertPointcloud(
   }
 
   {  // sorting pointcloud by distance, on each azimuth angle group
-    std::unique_ptr<autoware_utils::ScopedTimeTrack> inner_st_ptr;
+    std::unique_ptr<autoware_utils_debug::ScopedTimeTrack> inner_st_ptr;
     if (time_keeper_)
-      inner_st_ptr = std::make_unique<autoware_utils::ScopedTimeTrack>("sort", *time_keeper_);
+      inner_st_ptr = std::make_unique<autoware_utils_debug::ScopedTimeTrack>("sort", *time_keeper_);
 
     for (size_t i = 0; i < radial_dividers_num_; ++i) {
       std::sort(
@@ -454,9 +460,9 @@ void GroundFilterComponent::classifyPointCloud(
   const std::vector<PointCloudVector> & in_radial_ordered_clouds,
   pcl::PointIndices & out_no_ground_indices) const
 {
-  std::unique_ptr<autoware_utils::ScopedTimeTrack> st_ptr;
+  std::unique_ptr<autoware_utils_debug::ScopedTimeTrack> st_ptr;
   if (time_keeper_)
-    st_ptr = std::make_unique<autoware_utils::ScopedTimeTrack>(__func__, *time_keeper_);
+    st_ptr = std::make_unique<autoware_utils_debug::ScopedTimeTrack>(__func__, *time_keeper_);
 
   out_no_ground_indices.indices.clear();
 
@@ -577,9 +583,9 @@ void GroundFilterComponent::extractObjectPoints(
   const sensor_msgs::msg::PointCloud2::ConstSharedPtr & in_cloud_ptr,
   const pcl::PointIndices & in_indices, sensor_msgs::msg::PointCloud2 & out_object_cloud) const
 {
-  std::unique_ptr<autoware_utils::ScopedTimeTrack> st_ptr;
+  std::unique_ptr<autoware_utils_debug::ScopedTimeTrack> st_ptr;
   if (time_keeper_)
-    st_ptr = std::make_unique<autoware_utils::ScopedTimeTrack>(__func__, *time_keeper_);
+    st_ptr = std::make_unique<autoware_utils_debug::ScopedTimeTrack>(__func__, *time_keeper_);
 
   size_t output_data_size = 0;
 
@@ -596,9 +602,9 @@ void GroundFilterComponent::faster_filter(
   [[maybe_unused]] const pcl::IndicesPtr & indices, sensor_msgs::msg::PointCloud2 & output,
   [[maybe_unused]] const TransformInfo & transform_info)
 {
-  std::unique_ptr<autoware_utils::ScopedTimeTrack> st_ptr;
+  std::unique_ptr<autoware_utils_debug::ScopedTimeTrack> st_ptr;
   if (time_keeper_)
-    st_ptr = std::make_unique<autoware_utils::ScopedTimeTrack>(__func__, *time_keeper_);
+    st_ptr = std::make_unique<autoware_utils_debug::ScopedTimeTrack>(__func__, *time_keeper_);
 
   std::scoped_lock lock(mutex_);
 
