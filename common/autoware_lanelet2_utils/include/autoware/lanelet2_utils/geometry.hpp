@@ -26,10 +26,11 @@ namespace autoware::lanelet2_utils
 {
 
 /**
- * @brief extrapolates a point beyond a segment defined by two points.
+ * @brief extrapolates a point beyond a segment defined by two points. 
+ *        To extrapolate from first, revert the arguments
  * @param [in] first first endpoint of the segment.
  * @param [in] second second endpoint of the segment.
- * @param [in] distance distance to extrapolate.
+ * @param [in] distance distance to extrapolate from second toward outward.
  * @return lanelet::ConstPoint3d The extrapolated point.
  */
 lanelet::ConstPoint3d extrapolate_point(

@@ -37,17 +37,9 @@ lanelet::ConstPoint3d extrapolate_point(
     return first;
   }
 
-  double dx = second.x() - first.x();
-  double dy = second.y() - first.y();
-  double dz = second.z() - first.z();
-
-  double normalized = distance / segment_length;
-  double new_x, new_y, new_z;
-  new_x = second.x() + normalized * dx;
-  new_y = second.y() + normalized * dy;
-  new_z = second.z() + normalized * dz;
-
-  return lanelet::ConstPoint3d(lanelet::InvalId, new_x, new_y, new_z);
+  return lanelet::ConstPoint3d {lanelet::InvalId,
+  second.basicPoint() + (second.basicPoint() - first.basicPoint()).normalized() * distance
+  };
 }
 
 std::optional<lanelet::ConstPoint3d> interpolate_point(
@@ -59,18 +51,9 @@ std::optional<lanelet::ConstPoint3d> interpolate_point(
     return std::nullopt;
   }
 
-  double normalized = distance / segment_length;
-  double new_x, new_y, new_z;
-
-  double dx = second.x() - first.x();
-  double dy = second.y() - first.y();
-  double dz = second.z() - first.z();
-
-  new_x = first.x() + normalized * dx;
-  new_y = first.y() + normalized * dy;
-  new_z = first.z() + normalized * dz;
-
-  return lanelet::ConstPoint3d(lanelet::InvalId, new_x, new_y, new_z);
+  return lanelet::ConstPoint3d {lanelet::InvalId,
+  first.basicPoint() + (second.basicPoint() - first.basicPoint()).normalized() * distance
+  };
 }
 
 std::optional<lanelet::ConstPoint3d> interpolate_lanelet(
@@ -86,11 +69,7 @@ std::optional<lanelet::ConstPoint3d> interpolate_lanelet_sequence(
 {
   const auto merged_sequence = lanelet::LaneletSequence(lanelet_sequence);
   const auto centerline = merged_sequence.centerline();
-  auto interpolated_pt = interpolate_linestring(centerline, distance);
-  if (interpolated_pt.has_value()) {
-    return interpolated_pt;
-  }
-  return std::nullopt;
+  return interpolate_linestring(centerline, distance);;
 }
 
 std::optional<lanelet::CompoundLineString3d> concatenate_center_line(
