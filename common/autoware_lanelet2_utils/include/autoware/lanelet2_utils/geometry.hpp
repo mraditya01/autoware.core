@@ -100,38 +100,6 @@ std::optional<lanelet::LineString3d> get_linestring_from_arc_length(
 std::optional<geometry_msgs::msg::Pose> get_pose_from_2d_arc_length(
   const lanelet::ConstLanelets & lanelet_sequence, const double s);
 
-/**
- * @brief find an interpolated point from a linestring at a given distance.
- * @param [in] lanelet input linestring.
- * @param [in] distance desired distance.
- * @return lanelet::ConstPoint3d; the interpolated point from linestring.
- */
-template <typename Line>
-std::optional<lanelet::ConstPoint3d> interpolate_linestring(
-  const Line & linestring, double distance)
-{
-  if (linestring.size() < 2) {
-    return std::nullopt;
-  }
-
-  double total_length = lanelet::geometry::length(linestring);
-  if (distance < 0.0 || distance > total_length) {
-    return std::nullopt;
-  }
-
-  double accumulated = 0.0;
-  for (std::size_t i = 0; i + 1 < linestring.size(); ++i) {
-    const auto & p1 = linestring[i];
-    const auto & p2 = linestring[i + 1];
-    double seg_len = lanelet::geometry::distance3d(p1, p2);
-    if (accumulated + seg_len >= distance) {
-      return interpolate_point(p1, p2, distance - accumulated);
-    }
-    accumulated += seg_len;
-  }
-
-  return std::nullopt;
-}
 }  // namespace autoware::lanelet2_utils
 
 #endif  // AUTOWARE__LANELET2_UTILS__GEOMETRY_HPP_
