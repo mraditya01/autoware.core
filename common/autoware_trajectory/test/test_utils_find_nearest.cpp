@@ -27,43 +27,43 @@
 
 namespace
 {
-    using autoware_planning_msgs::msg::Trajectory;
-    using TrajectoryPointArray = std::vector<autoware_planning_msgs::msg::TrajectoryPoint>;
-    using autoware_utils_geometry::create_point;
-    using autoware_utils_geometry::create_quaternion_from_rpy;
-    using autoware_utils_geometry::transform_point;
-    
+using autoware_planning_msgs::msg::Trajectory;
+using TrajectoryPointArray = std::vector<autoware_planning_msgs::msg::TrajectoryPoint>;
+using autoware_utils_geometry::create_point;
+using autoware_utils_geometry::create_quaternion_from_rpy;
+using autoware_utils_geometry::transform_point;
+
 geometry_msgs::msg::Pose createPose(
-    double x, double y, double z, double roll, double pitch, double yaw)
-    {
-    geometry_msgs::msg::Pose p;
-    p.position = create_point(x, y, z);
-    p.orientation = create_quaternion_from_rpy(roll, pitch, yaw);
-    return p;
-    }
-     
-    template <class T>
-    T generateTestTrajectory(
-      const size_t num_points, const double point_interval, const double vel = 0.0,
-      const double init_theta = 0.0, const double delta_theta = 0.0)
-    {
-      using Point = typename T::_points_type::value_type;
-    
-      T traj;
-      for (size_t i = 0; i < num_points; ++i) {
-        const double theta = init_theta + i * delta_theta;
-        const double x = i * point_interval * std::cos(theta);
-        const double y = i * point_interval * std::sin(theta);
-    
-        Point p;
-        p.pose = createPose(x, y, 0.0, 0.0, 0.0, theta);
-        p.longitudinal_velocity_mps = vel;
-        traj.points.push_back(p);
-      }
-    
-      return traj;
-    }
-    
+  double x, double y, double z, double roll, double pitch, double yaw)
+{
+  geometry_msgs::msg::Pose p;
+  p.position = create_point(x, y, z);
+  p.orientation = create_quaternion_from_rpy(roll, pitch, yaw);
+  return p;
+}
+
+template <class T>
+T generateTestTrajectory(
+  const size_t num_points, const double point_interval, const double vel = 0.0,
+  const double init_theta = 0.0, const double delta_theta = 0.0)
+{
+  using Point = typename T::_points_type::value_type;
+
+  T traj;
+  for (size_t i = 0; i < num_points; ++i) {
+    const double theta = init_theta + i * delta_theta;
+    const double x = i * point_interval * std::cos(theta);
+    const double y = i * point_interval * std::sin(theta);
+
+    Point p;
+    p.pose = createPose(x, y, 0.0, 0.0, 0.0, theta);
+    p.longitudinal_velocity_mps = vel;
+    traj.points.push_back(p);
+  }
+
+  return traj;
+}
+
 TEST(trajectory, find_nearest_index_Pos_StraightTrajectory)
 {
   using autoware::experimental::trajectory::find_nearest_index;
@@ -162,7 +162,8 @@ TEST(trajectory, find_nearest_index_Pose_YawThreshold)
   const auto max_d = std::numeric_limits<double>::max();
 
   // Out of threshold
-  EXPECT_FALSE(find_nearest_index(traj.points, createPose(3.0, 0.0, 0.0, 0.0, 0.0, 1.1), max_d, 1.0));
+  EXPECT_FALSE(
+    find_nearest_index(traj.points, createPose(3.0, 0.0, 0.0, 0.0, 0.0, 1.1), max_d, 1.0));
 
   // On threshold
   EXPECT_EQ(
@@ -180,10 +181,11 @@ TEST(trajectory, find_nearest_index_Pose_DistAndYawThreshold)
   const auto traj = generateTestTrajectory<Trajectory>(10, 1.0);
 
   // Random cases
-  EXPECT_EQ(*find_nearest_index(traj.points, createPose(2.4, 1.3, 0.0, 0.0, 0.0, 0.3), 2.0, 0.4), 2U);
+  EXPECT_EQ(
+    *find_nearest_index(traj.points, createPose(2.4, 1.3, 0.0, 0.0, 0.0, 0.3), 2.0, 0.4), 2U);
   EXPECT_EQ(
     *find_nearest_index(traj.points, createPose(4.1, 0.3, 0.0, 0.0, 0.0, -0.8), 0.5, 1.0), 4U);
   EXPECT_EQ(
     *find_nearest_index(traj.points, createPose(8.5, -0.5, 0.0, 0.0, 0.0, 0.0), 1.0, 0.1), 8U);
 }
-}
+}  // namespace
