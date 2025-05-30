@@ -14,26 +14,17 @@
 
 #include "autoware/trajectory/utils/find_nearest.hpp"
 
-#include <autoware_utils_geometry/boost_geometry.hpp>
-#include <autoware_utils_math/unit_conversion.hpp>
-#include <tf2/LinearMath/Quaternion.hpp>
-
 #include <gtest/gtest.h>
-#include <gtest/internal/gtest-port.h>
 
-#include <algorithm>
 #include <limits>
-#include <vector>
 
 namespace
 {
 using autoware_planning_msgs::msg::Trajectory;
-using TrajectoryPointArray = std::vector<autoware_planning_msgs::msg::TrajectoryPoint>;
 using autoware_utils_geometry::create_point;
 using autoware_utils_geometry::create_quaternion_from_rpy;
-using autoware_utils_geometry::transform_point;
 
-geometry_msgs::msg::Pose createPose(
+geometry_msgs::msg::Pose create_pose(
   double x, double y, double z, double roll, double pitch, double yaw)
 {
   geometry_msgs::msg::Pose p;
@@ -43,7 +34,7 @@ geometry_msgs::msg::Pose createPose(
 }
 
 template <class T>
-T generateTestTrajectory(
+T generate_test_trajectory(
   const size_t num_points, const double point_interval, const double vel = 0.0,
   const double init_theta = 0.0, const double delta_theta = 0.0)
 {
@@ -56,7 +47,7 @@ T generateTestTrajectory(
     const double y = i * point_interval * std::sin(theta);
 
     Point p;
-    p.pose = createPose(x, y, 0.0, 0.0, 0.0, theta);
+    p.pose = create_pose(x, y, 0.0, 0.0, 0.0, theta);
     p.longitudinal_velocity_mps = vel;
     traj.points.push_back(p);
   }
@@ -68,7 +59,7 @@ TEST(trajectory, find_nearest_index_Pos_StraightTrajectory)
 {
   using autoware::experimental::trajectory::find_nearest_index;
 
-  const auto traj = generateTestTrajectory<Trajectory>(10, 1.0);
+  const auto traj = generate_test_trajectory<Trajectory>(10, 1.0);
 
   // Empty
   try {
@@ -106,7 +97,7 @@ TEST(trajectory, find_nearest_index_Pos_CurvedTrajectory)
 {
   using autoware::experimental::trajectory::find_nearest_index;
 
-  const auto traj = generateTestTrajectory<Trajectory>(10, 1.0, 0.0, 0.0, 0.1);
+  const auto traj = generate_test_trajectory<Trajectory>(10, 1.0, 0.0, 0.0, 0.1);
 
   // Random cases
   EXPECT_EQ(find_nearest_index(traj.points, create_point(5.1, 3.4, 0.0)), 6U);
@@ -116,76 +107,76 @@ TEST(trajectory, find_nearest_index_Pose_NoThreshold)
 {
   using autoware::experimental::trajectory::find_nearest_index;
 
-  const auto traj = generateTestTrajectory<Trajectory>(10, 1.0);
+  const auto traj = generate_test_trajectory<Trajectory>(10, 1.0);
 
   // Empty
   EXPECT_FALSE(find_nearest_index(Trajectory{}.points, geometry_msgs::msg::Pose{}, {}));
 
   // Start point
-  EXPECT_EQ(*find_nearest_index(traj.points, createPose(0.0, 0.0, 0.0, 0.0, 0.0, 0.0)), 0U);
+  EXPECT_EQ(*find_nearest_index(traj.points, create_pose(0.0, 0.0, 0.0, 0.0, 0.0, 0.0)), 0U);
 
   // End point
-  EXPECT_EQ(*find_nearest_index(traj.points, createPose(9.0, 0.0, 0.0, 0.0, 0.0, 0.0)), 9U);
+  EXPECT_EQ(*find_nearest_index(traj.points, create_pose(9.0, 0.0, 0.0, 0.0, 0.0, 0.0)), 9U);
 
   // Boundary conditions
-  EXPECT_EQ(*find_nearest_index(traj.points, createPose(0.5, 0.0, 0.0, 0.0, 0.0, 0.0)), 0U);
-  EXPECT_EQ(*find_nearest_index(traj.points, createPose(0.51, 0.0, 0.0, 0.0, 0.0, 0.0)), 1U);
+  EXPECT_EQ(*find_nearest_index(traj.points, create_pose(0.5, 0.0, 0.0, 0.0, 0.0, 0.0)), 0U);
+  EXPECT_EQ(*find_nearest_index(traj.points, create_pose(0.51, 0.0, 0.0, 0.0, 0.0, 0.0)), 1U);
 
   // Point before start point
-  EXPECT_EQ(*find_nearest_index(traj.points, createPose(-4.0, 5.0, 0.0, 0.0, 0.0, 0.0)), 0U);
+  EXPECT_EQ(*find_nearest_index(traj.points, create_pose(-4.0, 5.0, 0.0, 0.0, 0.0, 0.0)), 0U);
 
   // Point after end point
-  EXPECT_EQ(*find_nearest_index(traj.points, createPose(100.0, -3.0, 0.0, 0.0, 0.0, 0.0)), 9U);
+  EXPECT_EQ(*find_nearest_index(traj.points, create_pose(100.0, -3.0, 0.0, 0.0, 0.0, 0.0)), 9U);
 }
 
 TEST(trajectory, find_nearest_index_Pose_DistThreshold)
 {
   using autoware::experimental::trajectory::find_nearest_index;
 
-  const auto traj = generateTestTrajectory<Trajectory>(10, 1.0);
+  const auto traj = generate_test_trajectory<Trajectory>(10, 1.0);
 
   // Out of threshold
-  EXPECT_FALSE(find_nearest_index(traj.points, createPose(3.0, 0.6, 0.0, 0.0, 0.0, 0.0), 0.5));
+  EXPECT_FALSE(find_nearest_index(traj.points, create_pose(3.0, 0.6, 0.0, 0.0, 0.0, 0.0), 0.5));
 
   // On threshold
-  EXPECT_EQ(*find_nearest_index(traj.points, createPose(3.0, 0.5, 0.0, 0.0, 0.0, 0.0), 0.5), 3U);
+  EXPECT_EQ(*find_nearest_index(traj.points, create_pose(3.0, 0.5, 0.0, 0.0, 0.0, 0.0), 0.5), 3U);
 
   // Within threshold
-  EXPECT_EQ(*find_nearest_index(traj.points, createPose(3.0, 0.4, 0.0, 0.0, 0.0, 0.0), 0.5), 3U);
+  EXPECT_EQ(*find_nearest_index(traj.points, create_pose(3.0, 0.4, 0.0, 0.0, 0.0, 0.0), 0.5), 3U);
 }
 
 TEST(trajectory, find_nearest_index_Pose_YawThreshold)
 {
   using autoware::experimental::trajectory::find_nearest_index;
 
-  const auto traj = generateTestTrajectory<Trajectory>(10, 1.0);
+  const auto traj = generate_test_trajectory<Trajectory>(10, 1.0);
   const auto max_d = std::numeric_limits<double>::max();
 
   // Out of threshold
   EXPECT_FALSE(
-    find_nearest_index(traj.points, createPose(3.0, 0.0, 0.0, 0.0, 0.0, 1.1), max_d, 1.0));
+    find_nearest_index(traj.points, create_pose(3.0, 0.0, 0.0, 0.0, 0.0, 1.1), max_d, 1.0));
 
   // On threshold
   EXPECT_EQ(
-    *find_nearest_index(traj.points, createPose(3.0, 0.0, 0.0, 0.0, 0.0, 1.0), max_d, 1.0), 3U);
+    *find_nearest_index(traj.points, create_pose(3.0, 0.0, 0.0, 0.0, 0.0, 1.0), max_d, 1.0), 3U);
 
   // Within threshold
   EXPECT_EQ(
-    *find_nearest_index(traj.points, createPose(3.0, 0.0, 0.0, 0.0, 0.0, 0.9), max_d, 1.0), 3U);
+    *find_nearest_index(traj.points, create_pose(3.0, 0.0, 0.0, 0.0, 0.0, 0.9), max_d, 1.0), 3U);
 }
 
 TEST(trajectory, find_nearest_index_Pose_DistAndYawThreshold)
 {
   using autoware::experimental::trajectory::find_nearest_index;
 
-  const auto traj = generateTestTrajectory<Trajectory>(10, 1.0);
+  const auto traj = generate_test_trajectory<Trajectory>(10, 1.0);
 
   // Random cases
   EXPECT_EQ(
-    *find_nearest_index(traj.points, createPose(2.4, 1.3, 0.0, 0.0, 0.0, 0.3), 2.0, 0.4), 2U);
+    *find_nearest_index(traj.points, create_pose(2.4, 1.3, 0.0, 0.0, 0.0, 0.3), 2.0, 0.4), 2U);
   EXPECT_EQ(
-    *find_nearest_index(traj.points, createPose(4.1, 0.3, 0.0, 0.0, 0.0, -0.8), 0.5, 1.0), 4U);
+    *find_nearest_index(traj.points, create_pose(4.1, 0.3, 0.0, 0.0, 0.0, -0.8), 0.5, 1.0), 4U);
   EXPECT_EQ(
-    *find_nearest_index(traj.points, createPose(8.5, -0.5, 0.0, 0.0, 0.0, 0.0), 1.0, 0.1), 8U);
+    *find_nearest_index(traj.points, create_pose(8.5, -0.5, 0.0, 0.0, 0.0, 0.0), 1.0, 0.1), 8U);
 }
 }  // namespace

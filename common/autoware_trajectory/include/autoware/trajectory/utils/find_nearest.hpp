@@ -23,19 +23,11 @@
 
 #include <execinfo.h>
 
+#include <limits>
 #include <vector>
 
 namespace autoware::experimental::trajectory
 {
-/// Returns a module‐specific logger for find_nearest routines
-inline rclcpp::Logger get_logger()
-{
-  // give it any name you like
-  static const auto lg = rclcpp::get_logger("find_nearest_index");
-  return lg;
-}
-
-// cppcheck-suppress unusedFunction
 inline void print_backtrace()
 {
   constexpr size_t max_frames = 100;
@@ -67,7 +59,8 @@ template <class T>
 void validate_non_empty(const T & points)
 {
   if (points.empty()) {
-    print_backtrace();  //? is it ok to import this here?
+    print_backtrace();  // TODO(mraditya01): is it ok to just import (from
+                        // autoware_utils_system/backtrace.hpp)?
     throw std::invalid_argument("[autoware_motion_utils] validate_non_empty(): Points is empty.");
   }
 }
@@ -122,7 +115,7 @@ std::optional<size_t> find_nearest_index(
   try {
     validate_non_empty(points);
   } catch (const std::exception & e) {
-    RCLCPP_DEBUG(get_logger(), "%s", e.what());
+    RCLCPP_DEBUG(rclcpp::get_logger("trajectory_utils"), "%s", e.what());
     return {};
   }
 
