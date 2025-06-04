@@ -28,29 +28,6 @@
 
 namespace autoware::experimental::trajectory
 {
-inline void print_backtrace()
-{
-  constexpr size_t max_frames = 100;
-  void * addrlist[max_frames + 1];
-
-  int addrlen = backtrace(addrlist, sizeof(addrlist) / sizeof(void *));
-
-  if (addrlen == 0) {
-    return;
-  }
-
-  char ** symbol_list = backtrace_symbols(addrlist, addrlen);
-
-  std::stringstream ss;
-  ss << "\n   @   ********** back trace **********" << std::endl;
-  for (int i = 1; i < addrlen; i++) {
-    ss << "   @   " << symbol_list[i] << std::endl;
-  }
-  RCLCPP_DEBUG_STREAM(rclcpp::get_logger("autoware_utils"), ss.str());
-
-  free(symbol_list);
-}
-
 /**
  * @brief validate if points container is empty or not
  * @param points points of trajectory, path, ...
@@ -59,8 +36,7 @@ template <class T>
 void validate_non_empty(const T & points)
 {
   if (points.empty()) {
-    print_backtrace();  // TODO(mraditya01): is it ok to just import (from
-                        // autoware_utils_system/backtrace.hpp)?
+    autoware_utils_system::print_backtrace();
     throw std::invalid_argument("[autoware_motion_utils] validate_non_empty(): Points is empty.");
   }
 }
