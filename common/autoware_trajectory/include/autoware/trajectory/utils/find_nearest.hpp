@@ -15,6 +15,8 @@
 #ifndef AUTOWARE__TRAJECTORY__UTILS__FIND_NEAREST_HPP_
 #define AUTOWARE__TRAJECTORY__UTILS__FIND_NEAREST_HPP_
 
+#include "autoware/trajectory/detail/types.hpp"
+#include "autoware/trajectory/forward.hpp"
 #include "autoware_utils_geometry/geometry.hpp"
 #include "autoware_utils_geometry/pose_deviation.hpp"
 
@@ -29,99 +31,69 @@
 namespace autoware::experimental::trajectory
 {
 /**
- * @brief validate if points container is empty or not
- * @param points points of trajectory, path, ...
+ * @brief Find the corresponding s value on the trajectory for a given pose using ternary search.
+ * This method assumes the squared distance function is unimodal within the search range.
+ * @param trajectory Continuous trajectory object
+ * @param pose Given pose
+ * @return Corresponding s value (double) on the trajectory
  */
-template <class T>
-void validate_non_empty(const T & points)
+template <class TrajectoryPointType>
+std::optional<double> find_nearest_index(
+  const Trajectory<TrajectoryPointType> & trajectory, const geometry_msgs::msg::Pose & pose)
 {
-  if (points.empty()) {
-    autoware_utils_system::print_backtrace();
-    throw std::invalid_argument("[autoware_motion_utils] validate_non_empty(): Points is empty.");
-  }
-}
-
-/**
- * @brief find nearest point index through points container for a given point.
- * Finding nearest point is determined by looping through the points container,
- * and calculating the 2D squared distance between each point in the container and the given point.
- * The index of the point with minimum distance and yaw deviation comparing to the given point will
- * be returned.
- * @param points points of trajectory, path, ...
- * @param point given point
- * @return index of nearest point
- */
-template <class T>
-[[nodiscard]] size_t find_nearest_index(const T & points, const geometry_msgs::msg::Point & point)
-{
-  validate_non_empty(points);
-
-  double min_dist = std::numeric_limits<double>::max();
-  size_t min_idx = 0;
-
-  for (size_t i = 0; i < points.size(); ++i) {
-    const auto dist = autoware_utils_geometry::calc_squared_distance2d(points.at(i), point);
-    if (dist < min_dist) {
-      min_dist = dist;
-      min_idx = i;
-    }
-  }
-  return min_idx;
-}
-
-/**
- * @brief find nearest point index through points container for a given pose.
- * Finding nearest point is determined by looping through the points container,
- * and finding the nearest point to the given pose in terms of squared 2D distance and yaw
- * deviation. The index of the point with minimum distance and yaw deviation comparing to the given
- * pose will be returned.
- * @param points points of trajectory, path, ...
- * @param pose given pose
- * @param max_dist max distance used to get squared distance for finding the nearest point to given
- * pose
- * @param max_yaw max yaw used for finding nearest point to given pose
- * @return index of nearest point (index or none if not found)
- */
-template <class T>
-std::optional<size_t> find_nearest_index(
-  const T & points, const geometry_msgs::msg::Pose & pose,
-  const double max_dist = std::numeric_limits<double>::max(),
-  const double max_yaw = std::numeric_limits<double>::max())
-{
-  try {
-    validate_non_empty(points);
-  } catch (const std::exception & e) {
-    RCLCPP_DEBUG(rclcpp::get_logger("trajectory_utils"), "%s", e.what());
+  const auto bases = trajectory.get_underlying_bases();
+  if (bases.empty()) {
     return {};
   }
 
-  const double max_squared_dist = max_dist * max_dist;
-
+  // Find the closest discrete point
   double min_squared_dist = std::numeric_limits<double>::max();
-  bool is_nearest_found = false;
-  size_t min_idx = 0;
+  size_t closest_index = 0;
 
-  for (size_t i = 0; i < points.size(); ++i) {
-    const auto squared_dist = autoware_utils_geometry::calc_squared_distance2d(points.at(i), pose);
-    if (squared_dist > max_squared_dist || squared_dist >= min_squared_dist) {
-      continue;
+  for (size_t i = 0; i < bases.size(); ++i) {
+    const auto point = trajectory.compute(bases[i]);
+    const auto squared_dist =
+      autoware_utils_geometry::calc_squared_distance2d(point.position, pose.position);
+    if (squared_dist < min_squared_dist) {
+      min_squared_dist = squared_dist;
+      closest_index = i;
     }
-
-    const auto yaw = autoware_utils_geometry::calc_yaw_deviation(
-      autoware_utils_geometry::get_pose(points.at(i)), pose);
-    if (std::fabs(yaw) > max_yaw) {
-      continue;
-    }
-
-    min_squared_dist = squared_dist;
-    min_idx = i;
-    is_nearest_found = true;
   }
 
-  if (is_nearest_found) {
-    return min_idx;
+  // Refine the search using ternary search
+  double search_start = (closest_index == 0) ? bases[closest_index] : bases[closest_index - 1];
+  double search_end =
+    (closest_index == bases.size() - 1) ? bases[closest_index] : bases[closest_index + 1];
+
+  while (search_end - search_start > 1e-4) {  // Precision threshold
+    const double mid1 = search_start + (search_end - search_start) / 3.0;
+    const double mid2 = search_end - (search_end - search_start) / 3.0;
+
+    const auto point1 = trajectory.compute(mid1);
+    const auto point2 = trajectory.compute(mid2);
+
+    const double dist1 =
+      autoware_utils_geometry::calc_squared_distance2d(point1.position, pose.position);
+    const double dist2 =
+      autoware_utils_geometry::calc_squared_distance2d(point2.position, pose.position);
+
+    if (dist1 < dist2) {
+      search_end = mid2;
+    } else {
+      search_start = mid1;
+    }
   }
-  return std::nullopt;
+
+  const double nearest_s = (search_start + search_end) / 2.0;
+
+  // TODO(mradityag): Uncomment this section if yaw deviation validation is needed
+  //  // Validate yaw deviation
+  //  const auto nearest_point = trajectory.compute(nearest_s);
+  //  const auto yaw = autoware_utils_geometry::calc_yaw_deviation(nearest_point.orientation,
+  //  pose.orientation); if (std::fabs(yaw) > std::numeric_limits<double>::max()) {
+  //    return std::nullopt;
+  //  }
+  return nearest_s;
 }
 
 }  // namespace autoware::experimental::trajectory
