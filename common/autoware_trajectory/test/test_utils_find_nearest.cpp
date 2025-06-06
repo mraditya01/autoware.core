@@ -12,173 +12,230 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "autoware/trajectory/detail/types.hpp"
+#include "autoware/trajectory/pose.hpp"
 #include "autoware/trajectory/utils/find_nearest.hpp"
 
 #include <gtest/gtest.h>
 
+#include <fstream>
 #include <limits>
+#include <string>
+#include <vector>
 
-// namespace
-// {
-// using autoware_planning_msgs::msg::Trajectory;
-// using autoware_utils_geometry::create_point;
-// using autoware_utils_geometry::create_quaternion_from_rpy;
+namespace
+{
 
-// geometry_msgs::msg::Pose create_pose(
-//   double x, double y, double z, double roll, double pitch, double yaw)
-// {
-//   geometry_msgs::msg::Pose p;
-//   p.position = create_point(x, y, z);
-//   p.orientation = create_quaternion_from_rpy(roll, pitch, yaw);
-//   return p;
-// }
+using autoware::experimental::trajectory::find_nearest_index;
+using autoware::experimental::trajectory::Trajectory;
+using autoware_utils_geometry::create_point;
+using autoware_utils_geometry::create_quaternion_from_rpy;
 
-// template <class T>
-// T generate_test_trajectory(
-//   const size_t num_points, const double point_interval, const double vel = 0.0,
-//   const double init_theta = 0.0, const double delta_theta = 0.0)
-// {
-//   using Point = typename T::_points_type::value_type;
+static geometry_msgs::msg::Pose make_pose(double x, double y, double yaw = 0.0)
+{
+  geometry_msgs::msg::Pose p;
+  p.position = create_point(x, y, 0.0);
+  p.orientation = create_quaternion_from_rpy(0.0, 0.0, yaw);
+  return p;
+}
 
-//   T traj;
-//   for (size_t i = 0; i < num_points; ++i) {
-//     const double theta = init_theta + i * delta_theta;
-//     const double x = i * point_interval * std::cos(theta);
-//     const double y = i * point_interval * std::sin(theta);
+static Trajectory<geometry_msgs::msg::Pose> build_curved_trajectory(
+  const size_t num_points, const double interval, const double delta_theta)
+{
+  std::vector<geometry_msgs::msg::Pose> raw_poses;
+  raw_poses.reserve(num_points);
 
-//     Point p;
-//     p.pose = create_pose(x, y, 0.0, 0.0, 0.0, theta);
-//     p.longitudinal_velocity_mps = vel;
-//     traj.points.push_back(p);
-//   }
+  for (size_t i = 0; i < num_points; ++i) {
+    double theta = i * delta_theta;
+    double x = static_cast<double>(i) * interval * std::cos(theta);
+    double y = static_cast<double>(i) * interval * std::sin(theta);
+    geometry_msgs::msg::Pose p;
+    p.position = create_point(x, y, 0.0);
+    p.orientation = create_quaternion_from_rpy(0.0, 0.0, theta);
+    raw_poses.push_back(p);
+  }
 
-//   return traj;
-// }
+  auto maybe_traj = Trajectory<geometry_msgs::msg::Pose>::Builder{}.build(raw_poses);
+  return maybe_traj.value();
+}
 
-// TEST(trajectory, find_nearest_index_Pos_StraightTrajectory)
-// {
-//   using autoware::experimental::trajectory::find_nearest_index;
+// find_nearest_index on a curved trajectory (no thresholds)
+TEST(trajectory, find_nearest_index_CurvedTrajectory)
+{
+  auto traj = build_curved_trajectory(10, 1.0, 0.1);
 
-//   const auto traj = generate_test_trajectory<Trajectory>(10, 1.0);
+  {
+    double true_theta = 5 * 0.1;
+    double tx = 5.0 * std::cos(true_theta);
+    double ty = 5.0 * std::sin(true_theta);
+    double qx = tx + 0.2 * std::cos(true_theta + M_PI / 2.0);
+    double qy = ty + 0.2 * std::sin(true_theta + M_PI / 2.0);
 
-//   // Empty
-//   try {
-//     [[maybe_unused]] auto retval =
-//       find_nearest_index(Trajectory{}.points, geometry_msgs::msg::Point{});
-//     FAIL() << "Expected std::invalid_argument exception, but no exception was thrown.";
-//   } catch (const std::invalid_argument &) {
-//     SUCCEED();
-//   } catch (...) {
-//     FAIL() << "Expected std::invalid_argument exception, but a different exception was thrown.";
-//   }
+    auto query = make_pose(qx, qy, true_theta);
+    auto s_opt = find_nearest_index(traj, query);
+    ASSERT_TRUE(s_opt.has_value());
+    EXPECT_NEAR(*s_opt, 5.2850123, 1e-5);
+  }
 
-//   // Start point
-//   EXPECT_EQ(find_nearest_index(traj.points, create_point(0.0, 0.0, 0.0)), 0U);
+  {
+    double theta3 = 3 * 0.1;
+    double x3 = 3.0 * std::cos(theta3);
+    double y3 = 3.0 * std::sin(theta3);
+    double theta4 = 4 * 0.1;
+    double x4 = 4.0 * std::cos(theta4);
+    double y4 = 4.0 * std::sin(theta4);
+    double mx = 0.5 * (x3 + x4);
+    double my = 0.5 * (y3 + y4);
+    double avg_theta = 0.5 * (theta3 + theta4);
+    double qx = mx + 0.1 * std::cos(avg_theta + M_PI / 2.0);
+    double qy = my + 0.1 * std::sin(avg_theta + M_PI / 2.0);
 
-//   // End point
-//   EXPECT_EQ(find_nearest_index(traj.points, create_point(9.0, 0.0, 0.0)), 9U);
+    auto query = make_pose(qx, qy, avg_theta);
+    auto s_opt = find_nearest_index(traj, query);
+    ASSERT_TRUE(s_opt.has_value());
+    EXPECT_NEAR(*s_opt, 3.6025331, 1e-5);
+  }
+}
 
-//   // Boundary conditions
-//   EXPECT_EQ(find_nearest_index(traj.points, create_point(0.5, 0.0, 0.0)), 0U);
-//   EXPECT_EQ(find_nearest_index(traj.points, create_point(0.51, 0.0, 0.0)), 1U);
+// Pose-based queries on curved trajectory with no threshold
+TEST(trajectory, find_nearest_index_Pose_NoThreshold)
+{
+  auto traj = build_curved_trajectory(10, 1.0, 0.1);
 
-//   // Point before start point
-//   EXPECT_EQ(find_nearest_index(traj.points, create_point(-4.0, 5.0, 0.0)), 0U);
+  // Start point
+  {
+    auto query = make_pose(0.0, 0.0);
+    auto s_opt = find_nearest_index(traj, query);
+    ASSERT_TRUE(s_opt.has_value());
+    EXPECT_NEAR(*s_opt, 4.4552394e-05, 1e-5);
+  }
 
-//   // Point after end point
-//   EXPECT_EQ(find_nearest_index(traj.points, create_point(100.0, -3.0, 0.0)), 9U);
+  // End point
+  {
+    auto query = make_pose(9.0, 9.0);
+    auto s_opt = find_nearest_index(traj, query);
+    ASSERT_TRUE(s_opt.has_value());
+    EXPECT_NEAR(*s_opt, 10.0846927, 1e-5);
+  }
 
-//   // Random cases
-//   EXPECT_EQ(find_nearest_index(traj.points, create_point(2.4, 1.3, 0.0)), 2U);
-//   EXPECT_EQ(find_nearest_index(traj.points, create_point(4.0, 0.0, 0.0)), 4U);
-// }
+  // Boundary just below 0.5
+  {
+    auto query = make_pose(0.5, 0.5);
+    auto s_opt = find_nearest_index(traj, query);
+    ASSERT_TRUE(s_opt.has_value());
+    EXPECT_NEAR(*s_opt, 0.5443165, 1e-5);
+  }
 
-// TEST(trajectory, find_nearest_index_Pos_CurvedTrajectory)
-// {
-//   using autoware::experimental::trajectory::find_nearest_index;
+  // Boundary just above 0.5
+  {
+    auto query = make_pose(0.51, 0.51);
+    auto s_opt = find_nearest_index(traj, query);
+    ASSERT_TRUE(s_opt.has_value());
+    EXPECT_NEAR(*s_opt, 0.5559902, 1e-5);
+  }
 
-//   const auto traj = generate_test_trajectory<Trajectory>(10, 1.0, 0.0, 0.0, 0.1);
+  // Point before start
+  {
+    auto query = make_pose(-4.0, 5.0);
+    auto s_opt = find_nearest_index(traj, query);
+    ASSERT_TRUE(s_opt.has_value());
+    EXPECT_NEAR(*s_opt, 4.4552394e-05, 1e-5);
+  }
 
-//   // Random cases
-//   EXPECT_EQ(find_nearest_index(traj.points, create_point(5.1, 3.4, 0.0)), 6U);
-// }
+  // Point after end
+  {
+    auto query = make_pose(100.0, -3.0);
+    auto s_opt = find_nearest_index(traj, query);
+    ASSERT_TRUE(s_opt.has_value());
+    EXPECT_NEAR(*s_opt, 8.728790, 1e-5);
+  }
+}
 
-// TEST(trajectory, find_nearest_index_Pose_NoThreshold)
-// {
-//   using autoware::experimental::trajectory::find_nearest_index;
+// Pose-based queries on curved trajectory with distance threshold
+TEST(trajectory, find_nearest_index_Pose_DistThreshold)
+{
+  auto traj = build_curved_trajectory(10, 1.0, 0.1);
 
-//   const auto traj = generate_test_trajectory<Trajectory>(10, 1.0);
+  // Out of threshold
+  {
+    auto query = make_pose(3.0, 0.6);
+    auto s_opt = find_nearest_index(traj, query, 0.1);
+    EXPECT_FALSE(s_opt.has_value());
+  }
 
-//   // Empty
-//   EXPECT_FALSE(find_nearest_index(Trajectory{}.points, geometry_msgs::msg::Pose{}, {}));
+  // near threshold
+  {
+    auto query = make_pose(2.86601, 1.386561);
+    auto s_opt = find_nearest_index(traj, query, 0.501);
+    ASSERT_TRUE(s_opt.has_value());
+    EXPECT_NEAR(*s_opt, 3.3403783, 1e-5);
+  }
 
-//   // Start point
-//   EXPECT_EQ(*find_nearest_index(traj.points, create_pose(0.0, 0.0, 0.0, 0.0, 0.0, 0.0)), 0U);
+  // Within threshold
+  {
+    auto query = make_pose(3.0, 0.9);
+    auto s_opt = find_nearest_index(traj, query, 0.5);
+    ASSERT_TRUE(s_opt.has_value());
+    EXPECT_NEAR(*s_opt, 3.1567543, 1e-5);
+  }
+}
 
-//   // End point
-//   EXPECT_EQ(*find_nearest_index(traj.points, create_pose(9.0, 0.0, 0.0, 0.0, 0.0, 0.0)), 9U);
+// Pose-based queries on curved trajectory with yaw threshold
+TEST(trajectory, find_nearest_index_Pose_YawThreshold)
+{
+  auto traj = build_curved_trajectory(10, 1.0, 0.1);
+  const double max_d = std::numeric_limits<double>::max();
 
-//   // Boundary conditions
-//   EXPECT_EQ(*find_nearest_index(traj.points, create_pose(0.5, 0.0, 0.0, 0.0, 0.0, 0.0)), 0U);
-//   EXPECT_EQ(*find_nearest_index(traj.points, create_pose(0.51, 0.0, 0.0, 0.0, 0.0, 0.0)), 1U);
+  // Out of yaw threshold
+  {
+    auto query = make_pose(3.0, 0.0, 2);
+    auto s_opt = find_nearest_index(traj, query, max_d, 1.0);
+    EXPECT_FALSE(s_opt.has_value());
+  }
 
-//   // Point before start point
-//   EXPECT_EQ(*find_nearest_index(traj.points, create_pose(-4.0, 5.0, 0.0, 0.0, 0.0, 0.0)), 0U);
+  // near yaw threshold
+  {
+    auto query = make_pose(3.0, 0.0, 1.2678071089);
+    auto s_opt = find_nearest_index(traj, query, max_d, 1.0);
+    ASSERT_TRUE(s_opt.has_value());
+    EXPECT_NEAR(*s_opt, 2.7080427, 1e-5);
+  }
 
-//   // Point after end point
-//   EXPECT_EQ(*find_nearest_index(traj.points, create_pose(100.0, -3.0, 0.0, 0.0, 0.0, 0.0)), 9U);
-// }
+  // Within yaw threshold
+  {
+    auto query = make_pose(3.0, 0.0, 0.9);
+    auto s_opt = find_nearest_index(traj, query, max_d, 1.0);
+    ASSERT_TRUE(s_opt.has_value());
+    EXPECT_NEAR(*s_opt, 2.7080427, 1e-5);
+  }
+}
 
-// TEST(trajectory, find_nearest_index_Pose_DistThreshold)
-// {
-//   using autoware::experimental::trajectory::find_nearest_index;
+// Pose-based queries on curved trajectory with both distance & yaw thresholds
+TEST(trajectory, find_nearest_index_Pose_DistAndYawThreshold)
+{
+  auto traj = build_curved_trajectory(10, 1.0, 0.1);
 
-//   const auto traj = generate_test_trajectory<Trajectory>(10, 1.0);
+  // Within both thresholds
+  {
+    auto query = make_pose(3.0, 0.9, 1.2678071089);
+    auto s_opt = find_nearest_index(traj, query, 0.5);
+    ASSERT_TRUE(s_opt.has_value());
+    EXPECT_NEAR(*s_opt, 3.1567543, 1e-5);
+  }
 
-//   // Out of threshold
-//   EXPECT_FALSE(find_nearest_index(traj.points, create_pose(3.0, 0.6, 0.0, 0.0, 0.0, 0.0), 0.5));
+  // near yaw and distance threshold
+  {
+    auto query = make_pose(2.86601, 1.386561, 1.2678071089);
+    auto s_opt = find_nearest_index(traj, query, 0.501, 1.0);
+    ASSERT_TRUE(s_opt.has_value());
+    EXPECT_NEAR(*s_opt, 3.3403783, 1e-5);
+  }
 
-//   // On threshold
-//   EXPECT_EQ(*find_nearest_index(traj.points, create_pose(3.0, 0.5, 0.0, 0.0, 0.0, 0.0), 0.5),
-//   3U);
-
-//   // Within threshold
-//   EXPECT_EQ(*find_nearest_index(traj.points, create_pose(3.0, 0.4, 0.0, 0.0, 0.0, 0.0), 0.5),
-//   3U);
-// }
-
-// TEST(trajectory, find_nearest_index_Pose_YawThreshold)
-// {
-//   using autoware::experimental::trajectory::find_nearest_index;
-
-//   const auto traj = generate_test_trajectory<Trajectory>(10, 1.0);
-//   const auto max_d = std::numeric_limits<double>::max();
-
-//   // Out of threshold
-//   EXPECT_FALSE(
-//     find_nearest_index(traj.points, create_pose(3.0, 0.0, 0.0, 0.0, 0.0, 1.1), max_d, 1.0));
-
-//   // On threshold
-//   EXPECT_EQ(
-//     *find_nearest_index(traj.points, create_pose(3.0, 0.0, 0.0, 0.0, 0.0, 1.0), max_d, 1.0), 3U);
-
-//   // Within threshold
-//   EXPECT_EQ(
-//     *find_nearest_index(traj.points, create_pose(3.0, 0.0, 0.0, 0.0, 0.0, 0.9), max_d, 1.0), 3U);
-// }
-
-// TEST(trajectory, find_nearest_index_Pose_DistAndYawThreshold)
-// {
-//   using autoware::experimental::trajectory::find_nearest_index;
-
-//   const auto traj = generate_test_trajectory<Trajectory>(10, 1.0);
-
-//   // Random cases
-//   EXPECT_EQ(
-//     *find_nearest_index(traj.points, create_pose(2.4, 1.3, 0.0, 0.0, 0.0, 0.3), 2.0, 0.4), 2U);
-//   EXPECT_EQ(
-//     *find_nearest_index(traj.points, create_pose(4.1, 0.3, 0.0, 0.0, 0.0, -0.8), 0.5, 1.0), 4U);
-//   EXPECT_EQ(
-//     *find_nearest_index(traj.points, create_pose(8.5, -0.5, 0.0, 0.0, 0.0, 0.0), 1.0, 0.1), 8U);
-// }
-// }  // namespace
+  // Out of distance and yaw threshold
+  {
+    auto query = make_pose(3.0, 0.6, 2);
+    auto s_opt = find_nearest_index(traj, query, 0.6, 1.0);
+    EXPECT_FALSE(s_opt.has_value());
+  }
+}
+}  // namespace
