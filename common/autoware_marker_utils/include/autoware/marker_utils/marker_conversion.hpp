@@ -15,9 +15,7 @@
 #ifndef AUTOWARE__MARKER_UTILS__MARKER_CONVERSION_HPP_
 #define AUTOWARE__MARKER_UTILS__MARKER_CONVERSION_HPP_
 
-#include <autoware_utils/geometry/boost_polygon_utils.hpp>
 #include <autoware_utils/geometry/geometry.hpp>
-#include <autoware_utils/ros/marker_helper.hpp>
 #include <autoware_vehicle_info_utils/vehicle_info_utils.hpp>
 #include <rclcpp/time.hpp>
 
