@@ -21,6 +21,7 @@
 #include <autoware_perception_msgs/msg/predicted_objects.hpp>
 #include <geometry_msgs/msg/polygon.hpp>
 #include <std_msgs/msg/color_rgba.hpp>
+#include <tier4_planning_msgs/msg/path_with_lane_id.hpp>
 #include <visualization_msgs/msg/marker.hpp>
 #include <visualization_msgs/msg/marker_array.hpp>
 
@@ -50,13 +51,10 @@ protected:
     color_.g = 0.0f;
     color_.b = 0.0f;
     color_.a = 1.0f;
-    header_.frame_id = "map";
-    header_.stamp = now_;
   }
 
   rclcpp::Time now_;
   std_msgs::msg::ColorRGBA color_;
-  std_msgs::msg::Header header_;
 };
 
 auto make_point = [](float x, float y, float z) {
@@ -84,7 +82,7 @@ TEST_F(MarkerConversionTest, MakeMarkerFromPolygonLineStrip)
   poly.points.push_back(make_point(1.0f, 1.0f, 0.0f));
 
   auto arr = autoware::experimental::marker_utils::create_autoware_geometry_marker_array(
-    poly, header_.frame_id, now_, "ns", 42, visualization_msgs::msg::Marker::LINE_STRIP,
+    poly, now_, "ns", 42, visualization_msgs::msg::Marker::LINE_STRIP,
     create_marker_scale(0.1, 0.1, 0.1), color_);
 
   ASSERT_EQ(arr.markers.size(), 1u);
@@ -105,7 +103,7 @@ TEST_F(MarkerConversionTest, MakeMarkerFromPolygonLineList)
   poly.points.push_back(make_point(.5f, 1.0f, 0.0f));
 
   auto arr = autoware::experimental::marker_utils::create_autoware_geometry_marker_array(
-    poly, header_.frame_id, now_, "ns", 7, visualization_msgs::msg::Marker::LINE_LIST,
+    poly, now_, "ns", 7, visualization_msgs::msg::Marker::LINE_LIST,
     create_marker_scale(0.2, 0.2, 0.2), color_);
 
   ASSERT_EQ(arr.markers.size(), 1u);
@@ -192,7 +190,7 @@ TEST_F(MarkerConversionTest, CreateObjectsMakerArray)
 
   int64_t module_id = 0x1234;
   auto arr = autoware::experimental::marker_utils::create_predicted_objects_marker_array(
-    objs, "obj_ns", module_id, now_, color_);
+    objs, now_, "obj_ns", module_id, color_);
 
   ASSERT_EQ(arr.markers.size(), 1u);
   int64_t expected_id = (module_id << (sizeof(int32_t) * 8 / 2)) + 0;
@@ -219,7 +217,9 @@ TEST_F(MarkerConversionTest, VisualizeDebugFootprint)
   ring.push_back(Point2d{1.0, 0.0});
   ring.push_back(Point2d{1.0, 1.0});
 
-  auto arr = autoware::experimental::marker_utils::create_autoware_geometry_marker_array(ring);
+  auto arr = autoware::experimental::marker_utils::create_autoware_geometry_marker_array(
+    ring, now_, "goal_footprint", 0, visualization_msgs::msg::Marker::LINE_STRIP,
+    create_marker_scale(0.05, 0.0, 0.0), create_marker_color(0.99, 0.99, 0.2, 1.0));
   ASSERT_EQ(arr.markers.size(), 1u);
   const auto & pts = arr.markers[0].points;
   EXPECT_EQ(pts.size(), ring.size() + 1);
@@ -237,7 +237,9 @@ TEST_F(MarkerConversionTest, CreateTextMarkerFromPoint)
   pt.y = 2.0;
   pt.z = 3.0;
 
-  auto arr = autoware::experimental::marker_utils::create_autoware_geometry_marker_array(now_, pt);
+  auto arr = autoware::experimental::marker_utils::create_autoware_geometry_marker_array(
+    pt, now_, "no_start_obstacle_text", 0, visualization_msgs::msg::Marker::TEXT_VIEW_FACING,
+    create_marker_scale(0.0, 0.0, 1.0), create_marker_color(1.0, 1.0, 1.0, 0.999));
   ASSERT_EQ(arr.markers.size(), 1u);
   const auto & m = arr.markers[0];
   EXPECT_EQ(m.text, "!");
@@ -268,9 +270,9 @@ TEST_F(MarkerConversionTest, CreatePathWithLaneIdMarkerArrayNoText)
 // Test 10: create_path_with_lane_id_marker_array with text
 TEST_F(MarkerConversionTest, CreatePathWithLaneIdMarkerArrayWithText)
 {
-  autoware_internal_planning_msgs::msg::PathWithLaneId path;
+  tier4_planning_msgs::msg::PathWithLaneId path;
   for (int i = 0; i < 12; ++i) {
-    autoware_internal_planning_msgs::msg::PathPointWithLaneId pp;
+    tier4_planning_msgs::msg::PathPointWithLaneId pp;
     pp.point.pose.position.x = static_cast<double>(i);
     pp.point.pose.position.y = static_cast<double>(i);
     pp.lane_ids = {1};
@@ -351,10 +353,6 @@ TEST_F(MarkerConversionTest, CreatePredictedPathMarkerArrayOne)
 // Test 14: one PredictedObject + one pose within range → one marker with >0 points
 TEST_F(MarkerConversionTest, CreatePredictedObjectsMarkerArrayOne)
 {
-  visualization_msgs::msg::MarkerArray arr;
-  visualization_msgs::msg::Marker base = create_default_marker(
-    header_.frame_id, now_, "objects", 7, visualization_msgs::msg::Marker::LINE_LIST,
-    create_marker_scale(0.1, 0.1, 0.1), color_);
   // build one object with one predicted path and one pose
   autoware_perception_msgs::msg::PredictedObjects objs;
   autoware_perception_msgs::msg::PredictedObject obj;
@@ -374,7 +372,8 @@ TEST_F(MarkerConversionTest, CreatePredictedObjectsMarkerArrayOne)
   ego.position.y = 0.0;
   ego.position.z = 0.0;
 
-  autoware::experimental::marker_utils::create_predicted_objects_marker_array(arr, base, objs, ego);
+  const auto & arr =
+    autoware::experimental::marker_utils::create_predicted_objects_marker_array(objs, ego);
 
   // should have exactly one marker
   ASSERT_EQ(arr.markers.size(), 1u);
@@ -403,13 +402,8 @@ TEST_F(MarkerConversionTest, CreateLaneletsMarkerArrayOne)
   ConstLanelet cl{raw};
   lanelet::ConstLanelets lls{cl};
 
-  visualization_msgs::msg::MarkerArray arr;
-  visualization_msgs::msg::Marker marker = create_default_marker(
-    header_.frame_id, now_, "lanelets", 5, visualization_msgs::msg::Marker::LINE_STRIP,
-    create_marker_scale(0.1, 0.1, 0.1), color_);
-
   const double Z = 1.0;
-  autoware::experimental::marker_utils::create_lanelets_marker_array(lls, marker, arr, Z);
+  const auto & arr = autoware::experimental::marker_utils::create_lanelets_marker_array(lls, Z);
 
   ASSERT_EQ(arr.markers.size(), 1u);
   const auto & m_out = arr.markers[0];
@@ -448,19 +442,16 @@ TEST_F(MarkerConversionTest, CreateAutowareGeometryMarkerArrayMultiPolygon)
   }
   MultiPolygon2d mp{tri, sq};
 
-  visualization_msgs::msg::MarkerArray arr;
-  auto base = create_default_marker(
-    header_.frame_id, now_, "mp_test", 42, visualization_msgs::msg::Marker::LINE_LIST,
-    create_marker_scale(0.1, 0.1, 0.1), color_);
-  arr.markers.push_back(base);
-
   // single trajectory point at (5,6,7)
   std::vector<autoware_planning_msgs::msg::TrajectoryPoint> traj(1);
   traj[0].pose.position.x = 5.0;
   traj[0].pose.position.y = 6.0;
   traj[0].pose.position.z = 7.0;
 
-  autoware::experimental::marker_utils::create_autoware_geometry_marker_array(mp, arr, 0, traj);
+  const auto & arr = autoware::experimental::marker_utils::create_autoware_geometry_marker_array(
+    mp, 0, traj, rclcpp::Time(0), "out_of_lane_areas", 0,
+    visualization_msgs::msg::Marker::LINE_LIST, create_marker_scale(0.1, 0.1, 0.1),
+    autoware_utils::create_marker_color(1.0, 0.0, 0.0, 1.0));
 
   ASSERT_EQ(arr.markers.size(), 1u);
   const auto & pts = arr.markers[0].points;
@@ -492,18 +483,13 @@ TEST_F(MarkerConversionTest, CreateAutowareGeometryMarkerArrayMultiPolygon)
 TEST_F(MarkerConversionTest, EmptyLaneletsCustomNS)
 {
   lanelet::ConstLanelets empty;
-  visualization_msgs::msg::MarkerArray markers;
-  markers.markers.push_back(create_default_marker(
-    header_.frame_id, now_, "end_lanelets", 2, visualization_msgs::msg::Marker::LINE_LIST,
-    create_marker_scale(0.2, 0.2, 0.2), color_));
+  const auto & markers =
+    autoware::experimental::marker_utils::create_lanelets_marker_array(empty, color_, "foo");
 
-  autoware::experimental::marker_utils::create_lanelets_marker_array(empty, color_, markers, "foo");
-
-  ASSERT_EQ(markers.markers.size(), 1u);
-  EXPECT_EQ(markers.markers[0].ns, "end_lanelets");
+  ASSERT_EQ(markers.markers.size(), 0u);
 }
 
-// Test 18: create_autoware_geometry_marker_array with triangle lanelet
+// Test 18: create_autoware_geometry_marker_array with lanelet as triangle marker array
 TEST_F(MarkerConversionTest, SingleLaneletClosedRing)
 {
   using lanelet::ConstLanelet;
@@ -517,14 +503,10 @@ TEST_F(MarkerConversionTest, SingleLaneletClosedRing)
   ConstLanelet cl{raw};
   lanelet::ConstLanelets lls{cl};
 
-  visualization_msgs::msg::MarkerArray markers;
-  markers.markers.push_back(create_default_marker(
-    header_.frame_id, now_, "goal_lanelets", 5, visualization_msgs::msg::Marker::LINE_STRIP,
-    create_marker_scale(0.1, 0.1, 0.1), color_));
+  const auto & markers =
+    autoware::experimental::marker_utils::create_lanelets_marker_array(lls, color_, "ns");
 
-  autoware::experimental::marker_utils::create_lanelets_marker_array(lls, color_, markers, "ns");
-
-  ASSERT_EQ(markers.markers.size(), 2u);
+  ASSERT_EQ(markers.markers.size(), 1u);
   const auto & m = markers.markers.back();
   auto poly = cl.polygon2d().basicPolygon();
   EXPECT_EQ(m.points.size(), poly.size() + 2);
