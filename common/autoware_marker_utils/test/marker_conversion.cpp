@@ -21,7 +21,6 @@
 #include <autoware_perception_msgs/msg/predicted_objects.hpp>
 #include <geometry_msgs/msg/polygon.hpp>
 #include <std_msgs/msg/color_rgba.hpp>
-#include <tier4_planning_msgs/msg/path_with_lane_id.hpp>
 #include <visualization_msgs/msg/marker.hpp>
 #include <visualization_msgs/msg/marker_array.hpp>
 
@@ -206,7 +205,7 @@ TEST_F(MarkerConversionTest, CreateObjectsMakerArray)
   EXPECT_DOUBLE_EQ(m.pose.orientation.w, 1.0);
 }
 
-// Test 7: debug footprint draws full closed ring including first point at end
+// Test 6: debug footprint draws full closed ring including first point at end
 TEST_F(MarkerConversionTest, VisualizeDebugFootprint)
 {
   using autoware_utils::LinearRing2d;
@@ -229,7 +228,7 @@ TEST_F(MarkerConversionTest, VisualizeDebugFootprint)
   expect_point_eq(pts.back(), ring.front().x(), ring.front().y(), 0.0);
 }
 
-// Test 8: text marker from point
+// Test 7: text marker from point
 TEST_F(MarkerConversionTest, CreateTextMarkerFromPoint)
 {
   geometry_msgs::msg::Point pt;
@@ -248,7 +247,7 @@ TEST_F(MarkerConversionTest, CreateTextMarkerFromPoint)
   EXPECT_DOUBLE_EQ(m.pose.position.z, 5.0);  // 3 + 2 offset
 }
 
-// Test 9: create_path_with_lane_id_marker_array without text
+// Test 8: create_path_with_lane_id_marker_array without text
 TEST_F(MarkerConversionTest, CreatePathWithLaneIdMarkerArrayNoText)
 {
   autoware_internal_planning_msgs::msg::PathWithLaneId path;
@@ -267,12 +266,12 @@ TEST_F(MarkerConversionTest, CreatePathWithLaneIdMarkerArrayNoText)
   EXPECT_DOUBLE_EQ(m.pose.position.y, 0.0);
 }
 
-// Test 10: create_path_with_lane_id_marker_array with text
+// Test 9: create_path_with_lane_id_marker_array with text
 TEST_F(MarkerConversionTest, CreatePathWithLaneIdMarkerArrayWithText)
 {
-  tier4_planning_msgs::msg::PathWithLaneId path;
+  autoware_internal_planning_msgs::msg::PathWithLaneId path;
   for (int i = 0; i < 12; ++i) {
-    tier4_planning_msgs::msg::PathPointWithLaneId pp;
+    autoware_internal_planning_msgs::msg::PathPointWithLaneId pp;
     pp.point.pose.position.x = static_cast<double>(i);
     pp.point.pose.position.y = static_cast<double>(i);
     pp.lane_ids = {1};
@@ -292,7 +291,7 @@ TEST_F(MarkerConversionTest, CreatePathWithLaneIdMarkerArrayWithText)
   EXPECT_TRUE(found_text);
 }
 
-// Test 11: create_vehicle_trajectory_point_marker_array
+// Test 10: create_vehicle_trajectory_point_marker_array
 TEST_F(MarkerConversionTest, CreateVehicleTrajectoryPointMarkerArray)
 {
   std::vector<autoware_planning_msgs::msg::TrajectoryPoint> traj(3);
@@ -307,14 +306,14 @@ TEST_F(MarkerConversionTest, CreateVehicleTrajectoryPointMarkerArray)
   info.rear_overhang_m = 1.0;
 
   auto arr = autoware::experimental::marker_utils::create_vehicle_trajectory_point_marker_array(
-    traj, info, 1);
+    traj, info, "mpt_footprints", 1);
   ASSERT_EQ(arr.markers.size(), traj.size());
   for (const auto & m : arr.markers) {
     ASSERT_EQ(m.points.size(), 5u);
   }
 }
 
-// Test 12: create_predicted_path_marker_array - empty
+// Test 11: create_predicted_path_marker_array - empty
 TEST_F(MarkerConversionTest, CreatePredictedPathMarkerArrayEmpty)
 {
   autoware_perception_msgs::msg::PredictedPath pp;
@@ -328,7 +327,7 @@ TEST_F(MarkerConversionTest, CreatePredictedPathMarkerArrayEmpty)
   EXPECT_TRUE(arr.markers.empty());
 }
 
-// Test 13: create_predicted_path_marker_array - one element
+// Test 12: create_predicted_path_marker_array - one element
 TEST_F(MarkerConversionTest, CreatePredictedPathMarkerArrayOne)
 {
   autoware_perception_msgs::msg::PredictedPath pp;
@@ -350,44 +349,7 @@ TEST_F(MarkerConversionTest, CreatePredictedPathMarkerArrayOne)
   EXPECT_EQ(m.points.size(), 5u);
 }
 
-// Test 14: one PredictedObject + one pose within range → one marker with >0 points
-TEST_F(MarkerConversionTest, CreatePredictedObjectsMarkerArrayOne)
-{
-  // build one object with one predicted path and one pose
-  autoware_perception_msgs::msg::PredictedObjects objs;
-  autoware_perception_msgs::msg::PredictedObject obj;
-  // a very simple shape: a unit‐square box
-  obj.shape.type = autoware_perception_msgs::msg::Shape::BOUNDING_BOX;
-  autoware_perception_msgs::msg::PredictedPath path;
-  geometry_msgs::msg::Pose pose;
-  pose.position.x = 1.0;
-  pose.position.y = 2.0;
-  pose.position.z = 0.0;
-  path.path.push_back(pose);
-  obj.kinematics.predicted_paths.push_back(path);
-  objs.objects.push_back(obj);
-
-  geometry_msgs::msg::Pose ego;
-  ego.position.x = 0.0;
-  ego.position.y = 0.0;
-  ego.position.z = 0.0;
-
-  const auto & arr =
-    autoware::experimental::marker_utils::create_predicted_objects_marker_array(objs, ego);
-
-  // should have exactly one marker
-  ASSERT_EQ(arr.markers.size(), 1u);
-  const auto & m = arr.markers[0];
-  // each corner of the unit‐box plus closing segment: 4 edges → 10 points
-  EXPECT_EQ(m.points.size(), 10u);
-  // check first two points are the first edge of the box
-  EXPECT_DOUBLE_EQ(m.points[0].x, 1.0);
-  EXPECT_DOUBLE_EQ(m.points[0].y, 2.0);
-  EXPECT_DOUBLE_EQ(m.points[1].x, 1.0);
-  EXPECT_DOUBLE_EQ(m.points[1].y, 2.0);
-}
-
-// Test 15: one simple rectangular lanelet → one marker, closed ring
+// Test 13: one simple rectangular lanelet → one marker, closed ring
 TEST_F(MarkerConversionTest, CreateLaneletsMarkerArrayOne)
 {
   // build a 1×1 rectangular lanelet
@@ -403,7 +365,9 @@ TEST_F(MarkerConversionTest, CreateLaneletsMarkerArrayOne)
   lanelet::ConstLanelets lls{cl};
 
   const double Z = 1.0;
-  const auto & arr = autoware::experimental::marker_utils::create_lanelets_marker_array(lls, Z);
+  const auto & arr = autoware::experimental::marker_utils::create_lanelets_marker_array(
+    lls, "book", autoware_utils::create_marker_color(0.0, 1.0, 0.0, 1.0),
+    create_marker_scale(0.1, 0.1, 0.1), Z);
 
   ASSERT_EQ(arr.markers.size(), 1u);
   const auto & m_out = arr.markers[0];
@@ -418,7 +382,7 @@ TEST_F(MarkerConversionTest, CreateLaneletsMarkerArrayOne)
   EXPECT_DOUBLE_EQ(m_out.points.back().z, Z + 0.5);
 }
 
-// Test 16: create_autoware_geometry_marker_array with a MultiPolygon2d of two rings
+// Test 14: create_autoware_geometry_marker_array with a MultiPolygon2d of two rings
 TEST_F(MarkerConversionTest, CreateAutowareGeometryMarkerArrayMultiPolygon)
 {
   using autoware_utils::MultiPolygon2d;
@@ -479,17 +443,17 @@ TEST_F(MarkerConversionTest, CreateAutowareGeometryMarkerArrayMultiPolygon)
   EXPECT_DOUBLE_EQ(pts[3].z, 0.0);
 }
 
-// Test 17: create_autoware_geometry_marker_array with empty lanelet
+// Test 15: create_autoware_geometry_marker_array with empty lanelet
 TEST_F(MarkerConversionTest, EmptyLaneletsCustomNS)
 {
   lanelet::ConstLanelets empty;
-  const auto & markers =
-    autoware::experimental::marker_utils::create_lanelets_marker_array(empty, color_, "foo");
+  const auto & markers = autoware::experimental::marker_utils::create_lanelets_marker_array(
+    empty, "foo", color_, create_marker_scale(0.1, 0.1, 0.1), 0, true);
 
   ASSERT_EQ(markers.markers.size(), 0u);
 }
 
-// Test 18: create_autoware_geometry_marker_array with lanelet as triangle marker array
+// Test 16: create_autoware_geometry_marker_array with lanelet as triangle marker array
 TEST_F(MarkerConversionTest, SingleLaneletClosedRing)
 {
   using lanelet::ConstLanelet;
@@ -503,8 +467,8 @@ TEST_F(MarkerConversionTest, SingleLaneletClosedRing)
   ConstLanelet cl{raw};
   lanelet::ConstLanelets lls{cl};
 
-  const auto & markers =
-    autoware::experimental::marker_utils::create_lanelets_marker_array(lls, color_, "ns");
+  const auto & markers = autoware::experimental::marker_utils::create_lanelets_marker_array(
+    lls, "ns", color_, create_marker_scale(0.1, 0.1, 0.1), 0, true);
 
   ASSERT_EQ(markers.markers.size(), 1u);
   const auto & m = markers.markers.back();
@@ -513,6 +477,39 @@ TEST_F(MarkerConversionTest, SingleLaneletClosedRing)
   expect_point_eq(m.points.back(), poly.front().x(), poly.front().y(), 0.0);
 }
 
+// Test 17: create_autoware_geometry_marker_array with lanelet as triangle marker array
+TEST_F(MarkerConversionTest, CreateLaneletPolygonMarkerArray)
+{
+  lanelet::LineString3d ring{
+    1,
+    {lanelet::Point3d(1, 0.0, 0.0, 0.0), lanelet::Point3d(2, 1.0, 0.0, 0.0),
+     lanelet::Point3d(3, 1.0, 1.0, 0.0), lanelet::Point3d(4, 0.0, 1.0, 0.0)}};
+  lanelet::ConstLineString3d const_ring = lanelet::ConstLineString3d(ring);
+  std::vector<lanelet::ConstLineString3d> rings{const_ring};
+  lanelet::CompoundPolygon3d polygon(rings);
+
+  std_msgs::msg::ColorRGBA color;
+  color.r = 0.5f;
+  color.g = 0.5f;
+  color.b = 1.0f;
+  color.a = 1.0f;
+
+  auto arr = autoware::experimental::marker_utils::create_lanelet_polygon_marker_array(
+    polygon, now_, "test_ns", 0, color);
+
+  ASSERT_EQ(arr.markers.size(), 1u);
+  const auto & marker = arr.markers[0];
+  ASSERT_EQ(marker.points.size(), ring.size());
+
+  for (size_t i = 0; i < ring.size(); ++i) {
+    EXPECT_DOUBLE_EQ(marker.points[i].x, ring[i].x());
+    EXPECT_DOUBLE_EQ(marker.points[i].y, ring[i].y());
+    EXPECT_DOUBLE_EQ(marker.points[i].z, ring[i].z());
+  }
+  EXPECT_EQ(marker.ns, "test_ns");
+  EXPECT_EQ(marker.id, 0);
+  EXPECT_EQ(marker.type, visualization_msgs::msg::Marker::LINE_STRIP);
+}
 }  // namespace
 
 int main(int argc, char ** argv)

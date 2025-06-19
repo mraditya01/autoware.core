@@ -135,15 +135,6 @@ visualization_msgs::msg::Marker create_autoware_geometry_marker(
 
 /**
  * @brief return marker array from lanelets
- * @param [in] lanelets lanelets to create markers from
- * @param [in] z z position of the marker
- * @return marker array of the lanelets
- */
-visualization_msgs::msg::MarkerArray create_lanelets_marker_array(
-  const lanelet::ConstLanelets & lanelets, double z);
-
-/**
- * @brief return marker array from lanelets
  * @details This function creates a marker array from lanelets, draw the lanelets either as triangle
  * marker or boundary as marker.
  * @param [in] lanelets lanelets to create markers from
@@ -152,8 +143,9 @@ visualization_msgs::msg::MarkerArray create_lanelets_marker_array(
  * @return marker array of the lanelets
  */
 visualization_msgs::msg::MarkerArray create_lanelets_marker_array(
-  const lanelet::ConstLanelets & lanelets, const std_msgs::msg::ColorRGBA & color,
-  const std::string & ns = "");
+  const lanelet::ConstLanelets & lanelets, const std::string & ns,
+  const std_msgs::msg::ColorRGBA & color, const geometry_msgs::msg::Vector3 scale,
+  const double z = 0.0, const bool planning = false);
 
 /**
  * @brief create marker array from predicted object
@@ -172,18 +164,6 @@ visualization_msgs::msg::MarkerArray create_predicted_objects_marker_array(
   const std::string & ns, const int32_t id, const std_msgs::msg::ColorRGBA & color);
 
 /**
- * @brief add predicted objects ego vehicle pose marker array from PredictedObjects to existing
- * marker array
- * @details This function creates a marker array from a PredictedObjects object (predicted_path),
- * draw the vehicle based on predicted path ego vehicle pose.
- * @param [in] objects PredictedObjects object
- * @param [in] ego_pose pose of the ego vehicle
- */
-visualization_msgs::msg::MarkerArray create_predicted_objects_marker_array(
-  const autoware_perception_msgs::msg::PredictedObjects & objects,
-  const geometry_msgs::msg::Pose & ego_pose);
-
-/**
  * @brief create predicted path marker array from PredictedPath
  * @param [in] predicted_path PredictedPath object
  * @param [in] vehicle_info vehicle information to calculate footprint
@@ -198,71 +178,6 @@ visualization_msgs::msg::MarkerArray create_predicted_path_marker_array(
   const int32_t & id, const std_msgs::msg::ColorRGBA & color);
 
 /**
- * @brief create a vehicle trajectory point marker array object
- * @param [in] mpt_traj trajectory points to create markers from
- * @param [in] vehicle_info vehicle information to calculate footprint
- * @param [in] sampling_num sampling number to reduce the number of markers
- * @return visualization_msgs::msg::MarkerArray
- */
-visualization_msgs::msg::MarkerArray create_vehicle_trajectory_point_marker_array(
-  const std::vector<autoware_planning_msgs::msg::TrajectoryPoint> & mpt_traj,
-  const autoware::vehicle_info_utils::VehicleInfo & vehicle_info, const size_t sampling_num);
-
-// TODO(Giovanni) Find a solution for this
-/**
- * @brief create a vehicle trajectory point marker array object
- * @details Temporary function to calculate the arc length of the path since
- * original function from "autoware/behavior_path_planner_common/utils/path_utils.hpp"
- * does not support any type beside tier4_planning_msgs::msg::PathWithLaneId.
- * @param [in] path PathWithLaneId object to calculate arc length from
- * @return vector of arc lengths
- */
-template <typename PathWithLaneIdT>
-std::vector<double> calc_path_arc_length_array(const PathWithLaneIdT & path)
-{
-  std::vector<double> out;
-  if (path.points.empty()) return out;
-
-  out.reserve(path.points.size());
-  double sum = 0.0;
-  out.push_back(sum);
-
-  for (size_t i = 1; i < path.points.size(); ++i) {
-    sum += autoware_utils::calc_distance2d(path.points.at(i).point, path.points.at(i - 1).point);
-    out.push_back(sum);
-  }
-  return out;
-}
-
-/**
- * @brief create marker array from lanelet polygon (CompoundPolygon3d or ConstPolygon3d)
- * @param [in] polygon lanelet polygon
- * @param [in] header header of the marker
- * @param [in] ns namespace
- * @param [in] color color of the marker
- * @return marker array of the lanelet polygon
- */
-template <typename PolygonT>
-visualization_msgs::msg::MarkerArray create_lanelet_polygon_marker_array(
-  const PolygonT & polygon, const std_msgs::msg::Header & header, const std::string & ns,
-  const std_msgs::msg::ColorRGBA & color)
-{
-  visualization_msgs::msg::MarkerArray marker_array;
-  auto marker = autoware_utils::create_default_marker(
-    header.frame_id, header.stamp, ns, 0, visualization_msgs::msg::Marker::LINE_STRIP,
-    autoware_utils::create_marker_scale(0.1, 0.0, 0.0), color);
-  for (const auto & p : polygon) {
-    geometry_msgs::msg::Point pt;
-    pt.x = p.x();
-    pt.y = p.y();
-    pt.z = p.z();
-    marker.points.push_back(pt);
-  }
-  marker_array.markers.push_back(marker);
-  return marker_array;
-}
-
-/**
  * @brief create marker array from predicted object (tier4 msg or internal planning msg)
  * @param [in] path PathWithLaneId object
  * @param [in] ns namespace
@@ -273,47 +188,36 @@ visualization_msgs::msg::MarkerArray create_lanelet_polygon_marker_array(
  * @param [in] with_text if true, add text to the marker
  * @return marker array of the boost MultiPolygon2d (Pull over area)
  */
-template <typename PathWithLaneIdT>
 visualization_msgs::msg::MarkerArray create_path_with_lane_id_marker_array(
-  const PathWithLaneIdT & path, const std::string & ns, const int32_t lane_id,
-  const rclcpp::Time & now, const geometry_msgs::msg::Vector3 scale,
-  const std_msgs::msg::ColorRGBA & color, const bool with_text)
-{
-  auto uid = lane_id << (sizeof(int32_t) * 8 / 2);
-  int32_t idx = 0;
-  int32_t i = 0;
-  visualization_msgs::msg::MarkerArray msg;
+  const autoware_internal_planning_msgs::msg::PathWithLaneId & path, const std::string & ns,
+  const int32_t id, const rclcpp::Time & now, const geometry_msgs::msg::Vector3 scale,
+  const std_msgs::msg::ColorRGBA & color, const bool with_text);
 
-  visualization_msgs::msg::Marker marker = autoware_utils::create_default_marker(
-    "map", now, ns, static_cast<int32_t>(uid), visualization_msgs::msg::Marker::ARROW, scale,
-    color);
+/**
+ * @brief create a vehicle trajectory point marker array object
+ * @param [in] mpt_traj trajectory points to create markers from
+ * @param [in] vehicle_info vehicle information to calculate footprint
+ * @param [in] ns namespace
+ * @param [in] id id of the marker
+ * @return visualization_msgs::msg::MarkerArray
+ */
+visualization_msgs::msg::MarkerArray create_vehicle_trajectory_point_marker_array(
+  const std::vector<autoware_planning_msgs::msg::TrajectoryPoint> & mpt_traj,
+  const autoware::vehicle_info_utils::VehicleInfo & vehicle_info, const std::string & ns,
+  const int32_t id);
 
-  for (const auto & p : path.points) {
-    marker.id = uid + i++;
-    marker.lifetime = rclcpp::Duration::from_seconds(0.3);
-    marker.pose = p.point.pose;
-
-    if (
-      std::find(p.lane_ids.begin(), p.lane_ids.end(), lane_id) == p.lane_ids.end() && !with_text) {
-      marker.color = autoware_utils::create_marker_color(0.5, 0.5, 0.5, 0.999);
-    }
-    msg.markers.push_back(marker);
-    if (i % 10 == 0 && with_text) {
-      const auto arclength = calc_path_arc_length_array(path);
-      visualization_msgs::msg::Marker marker_text = autoware_utils::create_default_marker(
-        "map", now, ns, 0L, visualization_msgs::msg::Marker::TEXT_VIEW_FACING,
-        autoware_utils::create_marker_scale(0.2, 0.1, 0.3),
-        autoware_utils::create_marker_color(1, 1, 1, 0.999));
-      marker_text.id = uid + i++;
-      std::stringstream ss;
-      ss << std::fixed << std::setprecision(1) << "i=" << idx << "\ns=" << arclength.at(idx);
-      marker_text.text = ss.str();
-      msg.markers.push_back(marker_text);
-    }
-    ++idx;
-  }
-  return msg;
-}
+/**
+ * @brief create marker array from lanelet polygon (CompoundPolygon3d)
+ * @param [in] polygon lanelet polygon
+ * @param [in] stamp time stamp of the marker
+ * @param [in] ns namespace
+ * @param [in] id id of the marker
+ * @param [in] color color of the marker
+ * @return marker array of the lanelet polygon
+ */
+visualization_msgs::msg::MarkerArray create_lanelet_polygon_marker_array(
+  const lanelet::CompoundPolygon3d & polygon, const rclcpp::Time & stamp, const std::string & ns,
+  int32_t id, const std_msgs::msg::ColorRGBA & color);
 
 }  // namespace autoware::experimental::marker_utils
 
