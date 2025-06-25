@@ -15,7 +15,7 @@
 #ifndef AUTOWARE__MARKER_UTILS__MARKER_CONVERSION_HPP_
 #define AUTOWARE__MARKER_UTILS__MARKER_CONVERSION_HPP_
 
-#include <autoware_utils/geometry/geometry.hpp>
+#include <autoware_utils_geometry/geometry.hpp>
 #include <autoware_vehicle_info_utils/vehicle_info_utils.hpp>
 #include <rclcpp/time.hpp>
 
@@ -61,9 +61,9 @@ visualization_msgs::msg::MarkerArray create_autoware_geometry_marker_array(
  * @return marker array of the boost LinearRing2d
  */
 visualization_msgs::msg::MarkerArray create_autoware_geometry_marker_array(
-  const autoware_utils::LinearRing2d & ring, const rclcpp::Time & stamp, const std::string & ns,
-  int32_t id, uint32_t marker_type, const geometry_msgs::msg::Vector3 & scale,
-  const std_msgs::msg::ColorRGBA & color);
+  const autoware_utils_geometry::LinearRing2d & ring, const rclcpp::Time & stamp,
+  const std::string & ns, int32_t id, uint32_t marker_type,
+  const geometry_msgs::msg::Vector3 & scale, const std_msgs::msg::ColorRGBA & color);
 
 /**
  * @brief create marker array from boost MultiPolygon2d (Pull over area)
@@ -78,7 +78,7 @@ visualization_msgs::msg::MarkerArray create_autoware_geometry_marker_array(
  * @return marker array of the boost MultiPolygon2d (Pull over area)
  */
 visualization_msgs::msg::MarkerArray create_autoware_geometry_marker_array(
-  const autoware_utils::MultiPolygon2d & area_polygons, const rclcpp::Time & stamp,
+  const autoware_utils_geometry::MultiPolygon2d & area_polygons, const rclcpp::Time & stamp,
   const std::string & ns, int32_t id, uint32_t marker_type,
   const geometry_msgs::msg::Vector3 & scale, const std_msgs::msg::ColorRGBA & color,
   double z = 0.0);
@@ -95,7 +95,7 @@ visualization_msgs::msg::MarkerArray create_autoware_geometry_marker_array(
  * @return marker array of the boost MultiPolygon2d (Pull over area)
  */
 visualization_msgs::msg::MarkerArray create_autoware_geometry_marker_array(
-  const autoware_utils::MultiPolygon2d & multi_polygon, const size_t & trajectory_index,
+  const autoware_utils_geometry::MultiPolygon2d & multi_polygon, const size_t & trajectory_index,
   const std::vector<autoware_planning_msgs::msg::TrajectoryPoint> & trajectory,
   const rclcpp::Time & stamp, const std::string & ns, int32_t id, uint32_t marker_type,
   const geometry_msgs::msg::Vector3 & scale, const std_msgs::msg::ColorRGBA & color);
@@ -129,9 +129,10 @@ visualization_msgs::msg::MarkerArray create_autoware_geometry_marker_array(
  * @return marker of the Autoware Polygon2d
  */
 visualization_msgs::msg::Marker create_autoware_geometry_marker(
-  const autoware_utils::Polygon2d & polygon, const rclcpp::Time & stamp, const std::string & ns,
-  int32_t id, uint32_t marker_type, const geometry_msgs::msg::Vector3 & scale,
-  const std_msgs::msg::ColorRGBA & color, double z = 0.0);
+  const autoware_utils_geometry::Polygon2d & polygon, const rclcpp::Time & stamp,
+  const std::string & ns, int32_t id, uint32_t marker_type,
+  const geometry_msgs::msg::Vector3 & scale, const std_msgs::msg::ColorRGBA & color,
+  double z = 0.0);
 
 /**
  * @brief return marker array from lanelets
