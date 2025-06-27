@@ -18,12 +18,8 @@
 
 #include <gtest/gtest.h>
 
-#include <chrono>
-#include <cmath>
 #include <fstream>
-#include <iostream>
 #include <limits>
-#include <random>
 #include <string>
 #include <vector>
 
@@ -72,8 +68,8 @@ static Trajectory<geometry_msgs::msg::Pose> build_parabolic_trajectory(
   double half = static_cast<double>(num_points - 1) / 2.0;
   for (size_t i = 0; i < num_points; ++i) {
     double x = (static_cast<double>(i) - half) * interval;
-    double y = x * x;
-    double yaw = std::atan2(2.0 * x, 1.0);
+    double y = x * x;                       // Parabola: y = x^2
+    double yaw = std::atan2(2.0 * x, 1.0);  // Tangent direction
     geometry_msgs::msg::Pose p;
     p.position = create_point(x, y, 0.0);
     p.orientation = create_quaternion_from_rpy(0.0, 0.0, yaw);
