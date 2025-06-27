@@ -18,6 +18,7 @@ ament_auto_add_library(autoware_trajectory SHARED
   src/detail/util.cpp
   src/interpolator/akima_spline.cpp
   src/interpolator/cubic_spline.cpp
+  src/interpolator/lane_ids_interpolator.cpp
   src/interpolator/linear.cpp
   src/interpolator/result.cpp
   src/interpolator/spherical_linear.cpp
@@ -26,6 +27,7 @@ ament_auto_add_library(autoware_trajectory SHARED
   src/utils/find_intervals.cpp
   src/utils/pretty_build.cpp
   src/utils/shift.cpp
+  src/utils/reference_path.cpp
 )
 
 if(BUILD_TESTING)
@@ -38,6 +40,7 @@ if(BUILD_TESTING)
     test/test_helpers.cpp
     test/test_interpolator.cpp
     test/test_pretty_build.cpp
+    test/test_reference_path.cpp
     test/test_trajectory_container.cpp
     test/test_trajectory_container_trajectory_point.cpp
     test/test_utils_find_nearest.cpp
@@ -60,10 +63,12 @@ if(BUILD_TESTING)
     examples/example_pose.cpp
     examples/example_pretty_build.cpp
     examples/example_readme.cpp
+    examples/example_reference_path.cpp
     examples/example_shift.cpp
   )
 
   add_definitions("-Wno-attributes")
+  find_package(ament_index_cpp REQUIRED)
   find_package(ament_lint_auto REQUIRED)
   find_package(python_cmake_module REQUIRED)
   find_package(
@@ -77,6 +82,7 @@ if(BUILD_TESTING)
   ament_lint_auto_find_test_dependencies()
   find_package(pybind11_vendor REQUIRED)
   find_package(pybind11 REQUIRED)
+  include_directories(${autoware_index_cpp_INCLUDE_DIRS})
   include_directories(${autoware_pyplot_INCLUDE_DIRS})
   include_directories(${autoware_test_utils_INCLUDE_DIRS})
   include_directories(${autoware_utils_geometry_INCLUDE_DIRS})
@@ -87,6 +93,7 @@ if(BUILD_TESTING)
     )
     target_link_libraries(${example_name}
       autoware_trajectory
+      ${autoware_index_cpp_LIBRARIES}
       ${autoware_utils_geometry_LIBRARIES}
       ${autoware_motion_utils_LIBRARIES}
       ${autoware_pyplot_LIBRARIES}

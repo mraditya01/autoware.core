@@ -18,6 +18,7 @@
 
 #include <autoware/motion_utils/resample/resample.hpp>
 #include <autoware/motion_utils/trajectory/trajectory.hpp>
+#include <autoware/trajectory/utils/pretty_build.hpp>
 #include <autoware_lanelet2_extension/utility/message_conversion.hpp>
 #include <autoware_lanelet2_extension/utility/query.hpp>
 #include <autoware_lanelet2_extension/utility/utilities.hpp>
@@ -58,13 +59,14 @@ PathGenerator::PathGenerator(const rclcpp::NodeOptions & node_options)
 
   vehicle_info_ = autoware::vehicle_info_utils::VehicleInfoUtils(*this).getVehicleInfo();
 
-  const auto params = param_listener_->get_params();
+  const auto debug_processing_time_detail =
+    create_publisher<autoware_utils_debug::ProcessingTimeDetail>(
+      "~/debug/processing_time_detail_ms", 1);
+  time_keeper_ = std::make_shared<autoware_utils_debug::TimeKeeper>(debug_processing_time_detail);
 
-  // Ensure that the refine_goal_search_radius_range and search_radius_decrement must be positive
-  if (params.refine_goal_search_radius_range <= 0 || params.search_radius_decrement <= 0) {
-    throw std::runtime_error(
-      "refine_goal_search_radius_range and search_radius_decrement must be positive");
-  }
+  debug_calculation_time_ = create_publisher<Float64Stamped>("~/debug/processing_time_ms", 1);
+
+  const auto params = param_listener_->get_params();
 
   timer_ = rclcpp::create_timer(
     this, get_clock(), rclcpp::Rate(params.planning_hz).period(),
@@ -73,6 +75,10 @@ PathGenerator::PathGenerator(const rclcpp::NodeOptions & node_options)
 
 void PathGenerator::run()
 {
+  autoware_utils_debug::ScopedTimeTrack st(__func__, *time_keeper_);
+
+  stop_watch_.tic();
+
   const auto input_data = take_data();
   set_planner_data(input_data);
   if (!is_data_ready(input_data)) {
@@ -100,6 +106,8 @@ void PathGenerator::run()
   hazard_signal_publisher_->publish(hazard_signal);
 
   path_publisher_->publish(*path);
+
+  publishStopWatchTime();
 }
 
 PathGenerator::InputData PathGenerator::take_data()
@@ -211,6 +219,8 @@ bool PathGenerator::is_data_ready(const InputData & input_data)
 std::optional<PathWithLaneId> PathGenerator::plan_path(
   const InputData & input_data, const Params & params)
 {
+  autoware_utils_debug::ScopedTimeTrack st(__func__, *time_keeper_);
+
   const auto path = generate_path(input_data.odometry_ptr->pose.pose, params);
 
   if (!path) {
@@ -228,7 +238,10 @@ std::optional<PathWithLaneId> PathGenerator::plan_path(
 std::optional<PathWithLaneId> PathGenerator::generate_path(
   const geometry_msgs::msg::Pose & current_pose, const Params & params)
 {
+  autoware_utils_debug::ScopedTimeTrack st(__func__, *time_keeper_);
+
   if (!update_current_lanelet(current_pose, params)) {
+    RCLCPP_ERROR(get_logger(), "Failed to update current lanelet");
     return std::nullopt;
   }
 
@@ -242,6 +255,9 @@ std::optional<PathWithLaneId> PathGenerator::generate_path(
   const auto backward_lanelets_within_route =
     utils::get_lanelets_within_route_up_to(*current_lanelet_, planner_data_, backward_length);
   if (!backward_lanelets_within_route) {
+    RCLCPP_ERROR(
+      get_logger(), "Failed to get backward lanelets within route for current lanelet (id: %ld)",
+      current_lanelet_->id());
     return std::nullopt;
   }
   lanelets.insert(
@@ -267,6 +283,9 @@ std::optional<PathWithLaneId> PathGenerator::generate_path(
   const auto forward_lanelets_within_route =
     utils::get_lanelets_within_route_after(*current_lanelet_, planner_data_, forward_length);
   if (!forward_lanelets_within_route) {
+    RCLCPP_ERROR(
+      get_logger(), "Failed to get forward lanelets within route for current lanelet (id: %ld)",
+      current_lanelet_->id());
     return std::nullopt;
   }
   lanelets.insert(
@@ -324,6 +343,7 @@ std::optional<PathWithLaneId> PathGenerator::generate_path(
   const Params & params) const
 {
   if (lanelet_sequence.empty()) {
+    RCLCPP_ERROR(get_logger(), "Lanelet sequence is empty");
     return std::nullopt;
   }
 
@@ -413,11 +433,13 @@ std::optional<PathWithLaneId> PathGenerator::generate_path(
   }
 
   if (path_points_with_lane_id.empty()) {
+    RCLCPP_ERROR(get_logger(), "No path points generated from lanelet sequence");
     return std::nullopt;
   }
 
-  auto trajectory = Trajectory::Builder().build(path_points_with_lane_id);
+  auto trajectory = autoware::experimental::trajectory::pretty_build(path_points_with_lane_id);
   if (!trajectory) {
+    RCLCPP_ERROR(get_logger(), "Failed to build trajectory from path points");
     return std::nullopt;
   }
 
@@ -439,9 +461,10 @@ std::optional<PathWithLaneId> PathGenerator::generate_path(
   const auto distance_to_goal = autoware_utils::calc_distance2d(
     trajectory->compute(trajectory->length()), planner_data_.goal_pose);
 
-  if (distance_to_goal < params.refine_goal_search_radius_range) {
+  if (distance_to_goal < params.smooth_goal_connection.search_radius_range) {
     auto refined_path = utils::modify_path_for_smooth_goal_connection(
-      *trajectory, planner_data_, params.refine_goal_search_radius_range);
+      *trajectory, planner_data_, params.smooth_goal_connection.search_radius_range,
+      params.smooth_goal_connection.pre_goal_offset);
 
     if (refined_path) {
       refined_path->align_orientation_with_trajectory_direction();
@@ -458,6 +481,7 @@ std::optional<PathWithLaneId> PathGenerator::generate_path(
   finalized_path_with_lane_id.points = trajectory->restore();
 
   if (finalized_path_with_lane_id.points.empty()) {
+    RCLCPP_ERROR(get_logger(), "Finalized path points are empty after cropping");
     return std::nullopt;
   }
 
@@ -513,6 +537,14 @@ bool PathGenerator::update_current_lanelet(
   }
 
   return false;
+}
+
+void PathGenerator::publishStopWatchTime()
+{
+  Float64Stamped calculation_time_data{};
+  calculation_time_data.stamp = this->now();
+  calculation_time_data.data = stop_watch_.toc();
+  debug_calculation_time_->publish(calculation_time_data);
 }
 }  // namespace autoware::path_generator
 
