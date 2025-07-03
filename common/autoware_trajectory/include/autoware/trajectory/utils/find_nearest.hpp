@@ -17,6 +17,7 @@
 
 #include "autoware/trajectory/detail/types.hpp"
 #include "autoware/trajectory/forward.hpp"
+#include "autoware/trajectory/threshold.hpp"
 #include "autoware_utils_geometry/geometry.hpp"
 #include "autoware_utils_geometry/pose_deviation.hpp"
 
@@ -49,7 +50,7 @@ template <class TrajectoryPointType>
   double min_dist = std::numeric_limits<double>::infinity();
   double min_s = (search_start + search_end) * 0.5;
 
-  while (search_end - search_start > 1e-4) {
+  while (search_end - search_start > k_points_minimum_dist_threshold) {
     const double mid1 = search_start + (search_end - search_start) / 3.0;
     const double mid2 = search_end - (search_end - search_start) / 3.0;
 
@@ -110,7 +111,7 @@ std::optional<double> find_nearest_index(
   double min_dist = std::numeric_limits<double>::infinity();
   double min_s = (search_start + search_end) * 0.5;
 
-  while (search_end - search_start > 1e-4) {
+  while (search_end - search_start > k_points_minimum_dist_threshold) {
     const double mid1 = search_start + (search_end - search_start) / 3.0;
     const double mid2 = search_end - (search_end - search_start) / 3.0;
 

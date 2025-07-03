@@ -14,6 +14,7 @@
 
 #include "autoware/trajectory/detail/types.hpp"
 #include "autoware/trajectory/pose.hpp"
+#include "autoware/trajectory/threshold.hpp"
 #include "autoware/trajectory/utils/find_nearest.hpp"
 
 #include <gtest/gtest.h>
@@ -27,6 +28,7 @@ namespace
 {
 
 using autoware::experimental::trajectory::find_nearest_index;
+using autoware::experimental::trajectory::k_points_minimum_dist_threshold;
 using autoware::experimental::trajectory::Trajectory;
 using autoware_utils_geometry::create_point;
 using autoware_utils_geometry::create_quaternion_from_rpy;
@@ -95,7 +97,7 @@ TEST(trajectory, find_nearest_index_CurvedTrajectory)
     auto query = make_pose(qx, qy, true_theta);
     auto s_opt = find_nearest_index(traj, query);
     ASSERT_TRUE(s_opt.has_value());
-    EXPECT_NEAR(*s_opt, 5.2850123, 1e-5);
+    EXPECT_NEAR(*s_opt, 5.2850123, k_points_minimum_dist_threshold);
   }
 
   {
@@ -114,7 +116,7 @@ TEST(trajectory, find_nearest_index_CurvedTrajectory)
     auto query = make_pose(qx, qy, avg_theta);
     auto s_opt = find_nearest_index(traj, query);
     ASSERT_TRUE(s_opt.has_value());
-    EXPECT_NEAR(*s_opt, 3.60253801, 1e-5);
+    EXPECT_NEAR(*s_opt, 3.60253801, k_points_minimum_dist_threshold);
   }
 }
 
@@ -128,7 +130,7 @@ TEST(trajectory, find_nearest_index_Pose_NoThreshold)
     auto query = make_pose(0.0, 0.0);
     auto s_opt = find_nearest_index(traj, query);
     ASSERT_TRUE(s_opt.has_value());
-    EXPECT_NEAR(*s_opt, 4.4552394e-05, 1e-5);
+    EXPECT_NEAR(*s_opt, 4.4552394e-05, k_points_minimum_dist_threshold);
   }
 
   // End point
@@ -136,7 +138,7 @@ TEST(trajectory, find_nearest_index_Pose_NoThreshold)
     auto query = make_pose(9.0, 9.0);
     auto s_opt = find_nearest_index(traj, query);
     ASSERT_TRUE(s_opt.has_value());
-    EXPECT_NEAR(*s_opt, 10.0846927, 1e-5);
+    EXPECT_NEAR(*s_opt, 10.0846927, k_points_minimum_dist_threshold);
   }
 
   // Boundary just below 0.5
@@ -144,7 +146,7 @@ TEST(trajectory, find_nearest_index_Pose_NoThreshold)
     auto query = make_pose(0.5, 0.5);
     auto s_opt = find_nearest_index(traj, query);
     ASSERT_TRUE(s_opt.has_value());
-    EXPECT_NEAR(*s_opt, 0.54431653, 1e-5);
+    EXPECT_NEAR(*s_opt, 0.54431653, k_points_minimum_dist_threshold);
   }
 
   // Boundary just above 0.5
@@ -152,7 +154,7 @@ TEST(trajectory, find_nearest_index_Pose_NoThreshold)
     auto query = make_pose(0.51, 0.51);
     auto s_opt = find_nearest_index(traj, query);
     ASSERT_TRUE(s_opt.has_value());
-    EXPECT_NEAR(*s_opt, 0.55598476, 1e-5);
+    EXPECT_NEAR(*s_opt, 0.55598476, k_points_minimum_dist_threshold);
   }
 
   // Point before start
@@ -160,7 +162,7 @@ TEST(trajectory, find_nearest_index_Pose_NoThreshold)
     auto query = make_pose(-4.0, 5.0);
     auto s_opt = find_nearest_index(traj, query);
     ASSERT_TRUE(s_opt.has_value());
-    EXPECT_NEAR(*s_opt, 4.4552394e-05, 1e-5);
+    EXPECT_NEAR(*s_opt, 4.4552394e-05, k_points_minimum_dist_threshold);
   }
 
   // Point after end
@@ -168,7 +170,7 @@ TEST(trajectory, find_nearest_index_Pose_NoThreshold)
     auto query = make_pose(100.0, -3.0);
     auto s_opt = find_nearest_index(traj, query);
     ASSERT_TRUE(s_opt.has_value());
-    EXPECT_NEAR(*s_opt, 8.72879934, 1e-5);
+    EXPECT_NEAR(*s_opt, 8.72879934, k_points_minimum_dist_threshold);
   }
 }
 
@@ -189,7 +191,7 @@ TEST(trajectory, find_nearest_index_Pose_DistThreshold)
     auto query = make_pose(3.0, 0.9);
     auto s_opt = find_nearest_index(traj, query, 2.0);
     ASSERT_TRUE(s_opt.has_value());
-    EXPECT_NEAR(*s_opt, 3.1567543, 1e-5);
+    EXPECT_NEAR(*s_opt, 3.1567543, k_points_minimum_dist_threshold);
   }
 }
 
@@ -211,7 +213,7 @@ TEST(trajectory, find_nearest_index_Pose_YawThreshold)
     auto query = make_pose(3.0, 0.0, 0.9);
     auto s_opt = find_nearest_index(traj, query, max_d, 2.0);
     ASSERT_TRUE(s_opt.has_value());
-    EXPECT_NEAR(*s_opt, 2.70806359, 1e-5);
+    EXPECT_NEAR(*s_opt, 2.70806359, k_points_minimum_dist_threshold);
   }
 }
 
@@ -225,7 +227,7 @@ TEST(trajectory, find_nearest_index_Pose_DistAndYawThreshold)
     auto query = make_pose(3.0, 0.9, 1.2678071089);
     auto s_opt = find_nearest_index(traj, query, 2.0);
     ASSERT_TRUE(s_opt.has_value());
-    EXPECT_NEAR(*s_opt, 3.1567543, 1e-5);
+    EXPECT_NEAR(*s_opt, 3.1567543, k_points_minimum_dist_threshold);
   }
 
   // Out of distance and yaw threshold
@@ -246,7 +248,7 @@ TEST(trajectory, find_nearest_index_Pose_TwoMinimaDistAndYawThreshold)
     auto query = make_pose(3.0, 0.9, 1.2678071089);
     auto s_opt = find_nearest_index(traj, query, 2.0);
     ASSERT_TRUE(s_opt.has_value());
-    EXPECT_NEAR(*s_opt, 3.1567543, 1e-5);
+    EXPECT_NEAR(*s_opt, 3.1567543, k_points_minimum_dist_threshold);
   }
 
   // Out of distance and yaw threshold
@@ -266,7 +268,7 @@ TEST(trajectory, find_nearest_index_ParabolicTrajectory_AboveMinima)
     auto s_opt =
       find_nearest_index(traj, query, std::numeric_limits<double>::max(), 1.2707963267948966);
     ASSERT_TRUE(s_opt.has_value());
-    EXPECT_NEAR(*s_opt, 29.944142653, 1e-5);
+    EXPECT_NEAR(*s_opt, 29.944142653, k_points_minimum_dist_threshold);
   }
 }
 
