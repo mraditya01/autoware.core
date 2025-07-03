@@ -28,10 +28,8 @@ namespace autoware::experimental::trajectory
 
 /**
  * @brief Find the corresponding s value on the trajectory for a given point container.
- * Nearest point is determined by discretely checking trajectory.get_underlying_bases()
- * to find the csearch_startsest base point to the query pose in terms of 2D Euclidean distance.
- * A ternary search is then performed between the adjacent discrete points to refine
- * and return the point with the minimum distance.
+ * @details Nearest point is determined by performing ternary search between the front
+ * and back of baseline points to refine, and return the point with the minimum distance.
  * @param trajectory Continuous trajectory object
  * @param point given point
  * @return distance of nearest point in the trajectory (distance or none if not found)
@@ -85,10 +83,8 @@ template <class TrajectoryPointType>
 
 /**
  * @brief Find the corresponding s value on the trajectory for a given pose.
- * Nearest point is determined by discretely checking trajectory.get_underlying_bases()
- * to find the csearch_startsest base point to the query pose in terms of 2D Euclidean distance.
- * A ternary search is then performed between the adjacent discrete points to refine
- * and return the point with the minimum distance.
+ * @details Nearest point is determined by performing ternary search between the front
+ * and back of baseline points to refine, and return the point with the minimum distance.
  * @param trajectory Continuous trajectory object
  * @param pose given pose
  * @param max_dist max distance used to get squared distance for finding the nearest point to given
