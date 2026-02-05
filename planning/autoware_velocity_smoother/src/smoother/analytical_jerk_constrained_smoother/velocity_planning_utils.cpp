@@ -225,8 +225,14 @@ bool calcStopVelocityWithConstantJerkAccLimit(
     const std::vector<double> s_range{start_s, trajectory_length};
     const std::vector<double> vel_range{decel_target_vel, decel_target_vel};
     const std::vector<double> acc_range{0.0, 0.0};
-    output_trajectory.longitudinal_velocity_mps().build(s_range, vel_range);
-    output_trajectory.acceleration_mps2().build(s_range, acc_range);
+    if (!output_trajectory.longitudinal_velocity_mps().build(s_range, vel_range)) {
+      RCLCPP_WARN(rclcpp::get_logger("velocity_planning_utils"), "Failed to build velocity profile (empty xs case)");
+      return false;
+    }
+    if (!output_trajectory.acceleration_mps2().build(s_range, acc_range)) {
+      RCLCPP_WARN(rclcpp::get_logger("velocity_planning_utils"), "Failed to build acceleration profile (empty xs case)");
+      return false;
+    }
     return true;
   }
 
@@ -257,8 +263,14 @@ bool calcStopVelocityWithConstantJerkAccLimit(
     const std::vector<double> s_range_fallback{start_s, trajectory_length};
     const std::vector<double> vel_range_fallback{decel_target_vel, decel_target_vel};
     const std::vector<double> acc_range_fallback{0.0, 0.0};
-    output_trajectory.longitudinal_velocity_mps().build(s_range_fallback, vel_range_fallback);
-    output_trajectory.acceleration_mps2().build(s_range_fallback, acc_range_fallback);
+    if (!output_trajectory.longitudinal_velocity_mps().build(s_range_fallback, vel_range_fallback)) {
+      RCLCPP_WARN(rclcpp::get_logger("velocity_planning_utils"), "Failed to build velocity profile (empty s_range case)");
+      return false;
+    }
+    if (!output_trajectory.acceleration_mps2().build(s_range_fallback, acc_range_fallback)) {
+      RCLCPP_WARN(rclcpp::get_logger("velocity_planning_utils"), "Failed to build acceleration profile (empty s_range case)");
+      return false;
+    }
     return true;
   }
 
@@ -274,8 +286,14 @@ bool calcStopVelocityWithConstantJerkAccLimit(
     acc_range.push_back(0.0);
   }
 
-  output_trajectory.longitudinal_velocity_mps().build(s_range, vel_range);
-  output_trajectory.acceleration_mps2().build(s_range, acc_range);
+  if (!output_trajectory.longitudinal_velocity_mps().build(s_range, vel_range)) {
+    RCLCPP_WARN(rclcpp::get_logger("velocity_planning_utils"), "Failed to build velocity profile");
+    return false;
+  }
+  if (!output_trajectory.acceleration_mps2().build(s_range, acc_range)) {
+    RCLCPP_WARN(rclcpp::get_logger("velocity_planning_utils"), "Failed to build acceleration profile");
+    return false;
+  }
 
   return true;
 }

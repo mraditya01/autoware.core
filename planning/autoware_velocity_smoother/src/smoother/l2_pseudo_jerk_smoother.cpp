@@ -243,8 +243,8 @@ bool L2PseudoJerkSmoother::apply(
 bool L2PseudoJerkSmoother::apply(
   const double initial_vel, const double initial_acc, const TrajectoryExperimental & input,
   TrajectoryExperimental & output,
-  [[maybe_unused]] std::vector<TrajectoryExperimental> & debug_trajectories,
-  [[maybe_unused]] const bool publish_debug_trajs)
+  std::vector<TrajectoryExperimental> & debug_trajectories,
+  const bool publish_debug_trajs)
 {
   const auto [bases, velocities] = input.longitudinal_velocity_mps().get_data();
   if (bases.empty() || velocities.empty()) {
@@ -376,6 +376,17 @@ bool L2PseudoJerkSmoother::apply(
 
     output.longitudinal_velocity_mps().range(bases[i], bases[i]).set(optimized_vel);
     output.acceleration_mps2().range(bases[i], bases[i]).set(optimized_acc);
+  }
+
+  // Handle tail region beyond last optimized base point (matches discrete version)
+  if (bases.back() < input.length()) {
+    output.longitudinal_velocity_mps().range(bases.back(), input.length()).set(0.0);
+    output.acceleration_mps2().range(bases.back(), input.length()).set(0.0);
+  }
+
+  // Set debug trajectories
+  if (publish_debug_trajs) {
+    debug_trajectories.clear();
   }
 
   qp_solver_.logUnsolvedStatus("[autoware_velocity_smoother]");
