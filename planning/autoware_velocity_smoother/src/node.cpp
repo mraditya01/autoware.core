@@ -121,18 +121,18 @@ void VelocitySmootherNode::setupSmoother(const double wheelbase)
         create_publisher<Float32Stamped>("~/closest_merged_velocity", 1);
       break;
     }
-    // case AlgorithmType::L2: {
-    //   smoother_ = std::make_shared<L2PseudoJerkSmoother>(*this, time_keeper_);
-    //   break;
-    // }
-    // case AlgorithmType::LINF: {
-    //   smoother_ = std::make_shared<LinfPseudoJerkSmoother>(*this, time_keeper_);
-    //   break;
-    // }
-    // case AlgorithmType::ANALYTICAL: {
-    //   smoother_ = std::make_shared<AnalyticalJerkConstrainedSmoother>(*this, time_keeper_);
-    //   break;
-    // }
+    case AlgorithmType::L2: {
+      smoother_ = std::make_shared<L2PseudoJerkSmoother>(*this, time_keeper_);
+      break;
+    }
+    case AlgorithmType::LINF: {
+      smoother_ = std::make_shared<LinfPseudoJerkSmoother>(*this, time_keeper_);
+      break;
+    }
+    case AlgorithmType::ANALYTICAL: {
+      smoother_ = std::make_shared<AnalyticalJerkConstrainedSmoother>(*this, time_keeper_);
+      break;
+    }
     default:
       throw std::domain_error("[VelocitySmootherNode] invalid algorithm");
   }
@@ -574,7 +574,7 @@ TrajectoryPoints VelocitySmootherNode::calcTrajectoryVelocity(
 {
   autoware_utils_debug::ScopedTimeTrack st(__func__, *time_keeper_);
 
-  TrajectoryPoints output;  // velocity is optimized by qp solver
+  TrajectoryPoints output;
 
   // Extract trajectory around self-position with desired forward-backward length
   const size_t input_closest = findNearestIndexFromEgo(traj_input);
@@ -610,13 +610,12 @@ TrajectoryPoints VelocitySmootherNode::calcTrajectoryVelocity(
   }
 
   // Smoothing velocity
-  if (!smoothVelocity(traj_extracted, traj_extracted_closest, output)) {
-    return prev_output_;
-  }
-  // if (!smoothVelocityContinuous(traj_extracted, traj_extracted_closest, output)) {
-  //   RCLCPP_WARN(get_logger(), "[velocity_smoother] smoothVelocityContinuous failed! Returning prev_output_ with size=%lu", prev_output_.size());
+  // if (!smoothVelocity(traj_extracted, traj_extracted_closest, output)) {
   //   return prev_output_;
   // }
+  if (!smoothVelocityContinuous(traj_extracted, traj_extracted_closest, output)) {
+    return prev_output_;
+  }
   return output;
 }
 
@@ -771,16 +770,12 @@ bool VelocitySmootherNode::smoothVelocityContinuous(
       ? smoother_->applySteeringRateLimit(traj_lateral_acc_filtered, false)
       : traj_lateral_acc_filtered;
 
-  /////////////////////////////////////////////////////////////////////////////////////
-
-    // Resample trajectory with ego-velocity based interval distance
   auto traj_resampled = smoother_->resampleTrajectory(
     traj_steering_rate_limited.restore(), current_odometry_ptr_->twist.twist.linear.x,
     current_odometry_ptr_->pose.pose, node_param_.ego_nearest_dist_threshold,
     node_param_.ego_nearest_yaw_threshold);
 
   const size_t traj_resampled_closest = findNearestIndexFromEgo(traj_resampled);
-  /////////////////////////////////////////////////////////////////////////////////////
 
   // Set 0[m/s] in the terminal point
   if (!traj_resampled.empty()) {
@@ -815,7 +810,6 @@ bool VelocitySmootherNode::smoothVelocityContinuous(
         publish_debug_trajs_)) {
     RCLCPP_WARN(get_logger(), "Fail to solve optimization.");
   }
-  ///////////////////////////////////////////////////////////////////////////////////////
     
   // Set 0 velocity after input-stop-point
   overwriteStopPoint(clipped_, traj_smoothed_);
@@ -854,7 +848,7 @@ bool VelocitySmootherNode::smoothVelocityContinuous(
       pub_trajectory_steering_rate_limited_->publish(toTrajectoryMsg(tmp));
     }
 
-    // Convert continuous debug trajectories to discrete
+
     std::vector<TrajectoryPoints> debug_trajectories_discrete;
     for (const auto & traj : debug_trajectories) {
       debug_trajectories_discrete.push_back(traj.restore());
