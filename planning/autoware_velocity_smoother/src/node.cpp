@@ -18,6 +18,7 @@
 #include "autoware/velocity_smoother/smoother/jerk_filtered_smoother.hpp"
 #include "autoware/velocity_smoother/smoother/l2_pseudo_jerk_smoother.hpp"
 #include "autoware/velocity_smoother/smoother/linf_pseudo_jerk_smoother.hpp"
+#include <autoware/trajectory/utils/pretty_build.hpp>
 
 #include <autoware_vehicle_info_utils/vehicle_info_utils.hpp>
 
@@ -753,7 +754,11 @@ bool VelocitySmootherNode::smoothVelocityContinuous(
   const auto [initial_motion, type] = calcInitialMotion(input, input_closest);
 
   // Build continuous trajectory
-  auto input_continuous = TrajectoryExperimental::Builder().build(input).value();
+  auto opt_input_continuous = autoware::experimental::trajectory::pretty_build(input);
+  if (!opt_input_continuous) {
+    return false;
+  }
+  auto input_continuous = opt_input_continuous.value();
 
   // Lateral acceleration limit
   constexpr bool enable_smooth_limit = true;
@@ -765,7 +770,7 @@ bool VelocitySmootherNode::smoothVelocityContinuous(
       : input_continuous;
 
   // Steering angle rate limit (Note: set use_resample = false since it is resampled above)
-  const auto traj_steering_rate_limited =
+  const auto traj_steering_rate_limited = 
     node_param_.enable_steering_rate_limit
       ? smoother_->applySteeringRateLimit(traj_lateral_acc_filtered, false)
       : traj_lateral_acc_filtered;
@@ -782,7 +787,11 @@ bool VelocitySmootherNode::smoothVelocityContinuous(
     traj_resampled.back().longitudinal_velocity_mps = 0.0;
   }
 
-  auto traj_resampled_ = TrajectoryExperimental::Builder().build(traj_resampled).value();
+  auto opt_traj_resampled_ = autoware::experimental::trajectory::pretty_build(traj_resampled);
+  if (!opt_traj_resampled_) {
+    return false;
+  }
+  auto traj_resampled_ = opt_traj_resampled_.value();
 
   publishClosestVelocity(
     traj_resampled, current_odometry_ptr_->pose.pose, debug_closest_max_velocity_);
@@ -791,7 +800,16 @@ bool VelocitySmootherNode::smoothVelocityContinuous(
   TrajectoryPoints clipped;
   clipped.insert(
     clipped.end(), traj_resampled.begin() + traj_resampled_closest, traj_resampled.end());
-  auto clipped_ = TrajectoryExperimental::Builder().build(clipped).value();
+  
+  if (clipped.empty()) {
+    return false;
+  }
+  
+  auto opt_clipped_ = autoware::experimental::trajectory::pretty_build(clipped);
+  if (!opt_clipped_) {
+    return false;
+  }
+  auto clipped_ = opt_clipped_.value();
 
   const double smoother_max_acceleration =
     external_velocity_limit_.acceleration_request.request
@@ -804,13 +822,14 @@ bool VelocitySmootherNode::smoothVelocityContinuous(
   smoother_->setMaxJerk(smoother_max_jerk);
 
   std::vector<TrajectoryExperimental> debug_trajectories;
-  TrajectoryExperimental traj_smoothed_; 
+  TrajectoryExperimental traj_smoothed_;
   if (!smoother_->apply(
         initial_motion.vel, initial_motion.acc, clipped_, traj_smoothed_, debug_trajectories,
         publish_debug_trajs_)) {
     RCLCPP_WARN(get_logger(), "Fail to solve optimization.");
+    return false;
   }
-    
+  
   // Set 0 velocity after input-stop-point
   overwriteStopPoint(clipped_, traj_smoothed_);
   traj_smoothed = traj_smoothed_.restore();
@@ -853,7 +872,7 @@ bool VelocitySmootherNode::smoothVelocityContinuous(
     for (const auto & traj : debug_trajectories) {
       debug_trajectories_discrete.push_back(traj.restore());
     }
-
+    
     for (auto & debug_trajectory : debug_trajectories_discrete) {
       debug_trajectory.insert(
         debug_trajectory.begin(), traj_resampled.begin(),
@@ -936,7 +955,11 @@ void VelocitySmootherNode::insertBehindVelocity(
       return;
     }
 
-    const auto prev_output_continuous = TrajectoryExperimental::Builder().build(prev_output_).value();
+    auto opt_prev_output_continuous = TrajectoryExperimental::Builder().build(prev_output_);
+    if (!opt_prev_output_continuous) {
+      throw std::runtime_error("Failed to build prev_output continuous trajectory");
+    }
+    const auto prev_output_continuous = opt_prev_output_continuous.value();
     
     const auto bases = output.get_underlying_bases();
     std::vector<double> vel_values;
@@ -1158,7 +1181,9 @@ void VelocitySmootherNode::overwriteStopPoint(
     const auto input_vel_at_stop = input.compute(*stop_pos_opt).longitudinal_velocity_mps;
     input_stop_vel = input_vel_at_stop;
     output_stop_vel = output_vel_at_stop;
-    output.longitudinal_velocity_mps().range(*nearest_output_pos_opt, output.length()).set(0.0);
+    if (*nearest_output_pos_opt < safe_length) {
+      output.longitudinal_velocity_mps().range(*nearest_output_pos_opt, output.length() * 0.9999).set(0.0);
+    }
     RCLCPP_DEBUG(
       get_logger(),
       "replan : input_stop_pos = %f, stop velocity : input = %f, output = %f, thr = %f",
