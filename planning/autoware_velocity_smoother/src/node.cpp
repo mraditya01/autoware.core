@@ -829,9 +829,11 @@ bool VelocitySmootherNode::smoothVelocityContinuous(
     RCLCPP_WARN(get_logger(), "Fail to solve optimization.");
     return false;
   }
-  
+
   // Set 0 velocity after input-stop-point
   overwriteStopPoint(clipped_, traj_smoothed_);
+
+  // Convert back to discrete
   traj_smoothed = traj_smoothed_.restore();
 
   traj_smoothed.insert(
@@ -849,7 +851,6 @@ bool VelocitySmootherNode::smoothVelocityContinuous(
   // Insert behind velocity for output's consistency
   insertBehindVelocity(traj_resampled_closest, type, traj_smoothed);
 
-  RCLCPP_INFO(get_logger(), "smoothVelocity : max_velocity = %f", node_param_.max_velocity);
   if (publish_debug_trajs_) {
     {
       auto tmp = traj_lateral_acc_filtered.restore();
@@ -872,7 +873,19 @@ bool VelocitySmootherNode::smoothVelocityContinuous(
     for (const auto & traj : debug_trajectories) {
       debug_trajectories_discrete.push_back(traj.restore());
     }
-    
+
+
+    // for (auto & debug_trajectory : debug_trajectories) {
+    //   debug_trajectory.insert(
+    //     debug_trajectory.begin(), traj_resampled.begin(),
+    //     traj_resampled.begin() + traj_resampled_closest);
+    //   for (size_t i = 0; i < traj_resampled_closest; ++i) {
+    //     debug_trajectory.at(i).longitudinal_velocity_mps =
+    //       debug_trajectory.at(traj_resampled_closest).longitudinal_velocity_mps;
+    //   }
+    // }
+    // publishDebugTrajectories(debug_trajectories);
+
     for (auto & debug_trajectory : debug_trajectories_discrete) {
       debug_trajectory.insert(
         debug_trajectory.begin(), traj_resampled.begin(),
@@ -1181,7 +1194,7 @@ void VelocitySmootherNode::overwriteStopPoint(
     const auto input_vel_at_stop = input.compute(*stop_pos_opt).longitudinal_velocity_mps;
     input_stop_vel = input_vel_at_stop;
     output_stop_vel = output_vel_at_stop;
-    if (*nearest_output_pos_opt < safe_length) {
+    if (*nearest_output_pos_opt < output.length()) {
       output.longitudinal_velocity_mps().range(*nearest_output_pos_opt, output.length() * 0.9999).set(0.0);
     }
     RCLCPP_DEBUG(
