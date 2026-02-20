@@ -610,7 +610,7 @@ TrajectoryPoints VelocitySmootherNode::calcTrajectoryVelocity(
     pub_trajectory_vel_lim_->publish(toTrajectoryMsg(traj_extracted));
   }
 
-  // Smoothing velocity
+  // // Smoothing velocity
   // if (!smoothVelocity(traj_extracted, traj_extracted_closest, output)) {
   //   return prev_output_;
   // }
@@ -769,7 +769,6 @@ bool VelocitySmootherNode::smoothVelocityContinuous(
           input_continuous, initial_motion.vel, initial_motion.acc, enable_smooth_limit, use_resampling)
       : input_continuous;
 
-  // Steering angle rate limit (Note: set use_resample = false since it is resampled above)
   const auto traj_steering_rate_limited = 
     node_param_.enable_steering_rate_limit
       ? smoother_->applySteeringRateLimit(traj_lateral_acc_filtered, false)
@@ -1195,7 +1194,7 @@ void VelocitySmootherNode::overwriteStopPoint(
     input_stop_vel = input_vel_at_stop;
     output_stop_vel = output_vel_at_stop;
     if (*nearest_output_pos_opt < output.length()) {
-      output.longitudinal_velocity_mps().range(*nearest_output_pos_opt, output.length() * 0.9999).set(0.0);
+      output.longitudinal_velocity_mps().range(*nearest_output_pos_opt, output.length() * 0.99).set(0.0);
     }
     RCLCPP_DEBUG(
       get_logger(),
