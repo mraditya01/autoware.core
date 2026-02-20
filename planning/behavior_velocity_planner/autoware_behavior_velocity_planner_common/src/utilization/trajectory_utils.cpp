@@ -68,16 +68,25 @@ bool smoothPath(
   auto traj_resampled = smoother->resampleTrajectory(
     traj_steering_rate_limited, v0, current_pose, planner_data.ego_nearest_dist_threshold,
     planner_data.ego_nearest_yaw_threshold);
-
   if (traj_resampled.empty()) {
-    std::cerr << "[behavior_velocity][trajectory_utils]: resampled trajectory is empty" << std::endl;
+    RCLCPP_WARN(
+      rclcpp::get_logger("behavior_velocity_planner"),
+      "smoothPath: resampled trajectory is empty — aborting smoothPath to avoid crash");
     return false;
   }
-  
-  const size_t traj_resampled_closest =
-    autoware::motion_utils::findFirstNearestIndexWithSoftConstraints(
-      traj_resampled, current_pose, planner_data.ego_nearest_dist_threshold,
-      planner_data.ego_nearest_yaw_threshold);
+
+  size_t traj_resampled_closest = 0;
+  try {
+    traj_resampled_closest =
+      autoware::motion_utils::findFirstNearestIndexWithSoftConstraints(
+        traj_resampled, current_pose, planner_data.ego_nearest_dist_threshold,
+        planner_data.ego_nearest_yaw_threshold);
+  } catch (const std::exception & e) {
+    RCLCPP_WARN(
+      rclcpp::get_logger("behavior_velocity_planner"),
+      "smoothPath: findFirstNearestIndexWithSoftConstraints threw: %s — aborting", e.what());
+    return false;
+  }
   std::vector<TrajectoryPoints> debug_trajectories;
   // Clip trajectory from closest point
   TrajectoryPoints clipped;

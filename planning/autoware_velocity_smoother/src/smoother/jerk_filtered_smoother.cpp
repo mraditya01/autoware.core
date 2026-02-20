@@ -421,6 +421,15 @@ bool JerkFilteredSmoother::apply(
     merged_resampled_discrete.back().longitudinal_velocity_mps = 0.0;
   }
 
+  // Find stop point (match discrete behavior) and clip to that index
+  const auto zero_vel_id = autoware::motion_utils::searchZeroVelocityIndex(
+    merged_resampled_discrete, 1, merged_resampled_discrete.size());
+  if (!zero_vel_id) {
+    RCLCPP_WARN(logger_, "merged_resampled_discrete must have stop point.");
+    return false;
+  }
+  const size_t N = *zero_vel_id + 1;
+
   // Convert back to continuous for optimization
   auto opt_merged_resampled = autoware::experimental::trajectory::pretty_build(merged_resampled_discrete);
   if (!opt_merged_resampled) {
@@ -430,7 +439,6 @@ bool JerkFilteredSmoother::apply(
 
   // For jerk filtering on continuous trajectory, use the arc-length information
   const auto [merged_bases, merged_vels] = merged_resampled.longitudinal_velocity_mps().get_data();
-  const size_t N = merged_resampled_discrete.size();
 
   std::vector<double> interval_dist_arr;
   for (size_t i = 0; i < N - 1; ++i) {
