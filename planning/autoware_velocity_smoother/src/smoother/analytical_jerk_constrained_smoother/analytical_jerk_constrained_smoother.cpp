@@ -598,8 +598,9 @@ TrajectoryExperimental AnalyticalJerkConstrainedSmoother::applyLateralAccelerati
   [[maybe_unused]] const double a0, [[maybe_unused]] const bool enable_smooth_limit,
   const double input_distance_interval) const
 {
+  const auto trajectory_base = trajectory.base_arange (input_distance_interval);
   const auto curvature_v =
-    trajectory_utils::calcTrajectoryCurvatureFrom3Points(trajectory, input_distance_interval);
+    trajectory_utils::calcTrajectoryCurvatureFrom3Points(trajectory, trajectory_base);
 
   const auto lateral_acceleration_velocity_square_ratio_limits =
     computeLateralAccelerationVelocitySquareRatioLimits();
