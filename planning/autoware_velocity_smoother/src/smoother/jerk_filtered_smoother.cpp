@@ -305,7 +305,6 @@ bool JerkFilteredSmoother::apply(
     A(constr_idx, IDX_A0) = 1.0;  // a0
     upper_bound[constr_idx] = a0;
     lower_bound[constr_idx] = a0;
-    ++constr_idx;
   }
   time_keeper_->end_track("initOptimization");
 
@@ -367,11 +366,20 @@ bool JerkFilteredSmoother::apply(
   std::vector<TrajectoryExperimental> & debug_trajectories,
   const bool publish_debug_trajs)
 {
-  // Guard: check if trajectory is empty
   const auto [bases, velocities] = input.longitudinal_velocity_mps().get_data();
   if (bases.empty() || velocities.empty()) {
     RCLCPP_WARN(logger_, "Input Trajectory to the jerk filtered optimization is empty.");
     return false;
+  }
+  const double len = input.length();
+  for (const double b : bases) {
+    if (b < 0.0 || b > len) {
+      RCLCPP_WARN(
+        logger_,
+        "Input Trajectory base %f outside valid domain [0,%f] - aborting optimization",
+        b, len);
+      return false;
+    }
   }
   output = input;
 
@@ -552,7 +560,6 @@ bool JerkFilteredSmoother::apply(
     A(constr_idx, IDX_A0) = 1.0;
     upper_bound[constr_idx] = a0;
     lower_bound[constr_idx] = a0;
-    ++constr_idx;
   }
 
   time_keeper_->end_track("initOptimization");
@@ -842,13 +849,8 @@ TrajectoryExperimental JerkFilteredSmoother::backwardJerkFilter(
   if (discrete.empty()) {
     return input;
   }
-  std::reverse(discrete.begin(), discrete.end());
-  auto filtered = forwardJerkFilter(
-    v0, std::fabs(a0), std::fabs(a_min), std::fabs(a_stop), std::fabs(j_min), discrete);
-  std::reverse(filtered.begin(), filtered.end());
-  for (size_t i = 0; i < filtered.size(); ++i) {
-    filtered.at(i).acceleration_mps2 *= -1.0;
-  }
+  const auto filtered = backwardJerkFilter(
+    v0, a0, a_min, a_stop, j_min, discrete);
   TrajectoryExperimental output;
   if (!output.build(filtered)) {
     return input;  // Return input trajectory on build failure
