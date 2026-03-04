@@ -366,6 +366,7 @@ bool JerkFilteredSmoother::apply(
   std::vector<TrajectoryExperimental> & debug_trajectories,
   const bool publish_debug_trajs)
 {
+  // Guard: check if trajectory is empty and bases within valid range
   const auto [bases, velocities] = input.longitudinal_velocity_mps().get_data();
   if (bases.empty() || velocities.empty()) {
     RCLCPP_WARN(logger_, "Input Trajectory to the jerk filtered optimization is empty.");

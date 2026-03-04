@@ -261,40 +261,9 @@ bool AnalyticalJerkConstrainedSmoother::apply(
   [[maybe_unused]] std::vector<TrajectoryExperimental> & debug_trajectories,
   [[maybe_unused]] const bool publish_debug_trajs)
 {
-  // Defensive validation to prevent crashes from corrupted input
   try {
-    // Validate initial conditions
-    if (std::isnan(initial_vel) || std::isinf(initial_vel) ||
-        std::isnan(initial_acc) || std::isinf(initial_acc)) {
-      return false;
-    }
-
-    // Check trajectory length
-    const double traj_length = input.length();
-    constexpr double MAX_REASONABLE_LENGTH = 100000.0;  // 100km
-    if (traj_length <= 0.0 || std::isnan(traj_length) || std::isinf(traj_length) ||
-        traj_length > MAX_REASONABLE_LENGTH) {
-      return false;
-    }
-
-    // Validate velocity data
     const auto [bases, velocities] = input.longitudinal_velocity_mps().get_data();
-    
     if (bases.empty() || velocities.empty() || bases.size() != velocities.size()) {
-      return false;
-    }
-
-    // Validate trajectory size to prevent bad_alloc
-    constexpr size_t MAX_TRAJECTORY_SIZE = 10000;
-    if (bases.size() > MAX_TRAJECTORY_SIZE) {
-      return false;
-    }
-
-    // Check for NaN/Inf in critical points
-    if (std::isnan(bases[0]) || std::isinf(bases[0]) || 
-        std::isnan(velocities[0]) || std::isinf(velocities[0]) ||
-        std::isnan(bases.back()) || std::isinf(bases.back()) || 
-        std::isnan(velocities.back()) || std::isinf(velocities.back())) {
       return false;
     }
 
@@ -302,16 +271,12 @@ bool AnalyticalJerkConstrainedSmoother::apply(
     return false;
   } catch (const std::length_error&) {
     return false;
-  } catch (...) {
-    return false;
   }
 
   RCLCPP_DEBUG(logger_, "-------------------- Start --------------------");
 
   // closest_distance = 0
   const double closest_distance = 0.0;
-
-  // Get data (already validated above, so safe)
   const auto [bases, velocities] = input.longitudinal_velocity_mps().get_data();
 
   if (bases.size() == 1) {
@@ -598,7 +563,7 @@ TrajectoryExperimental AnalyticalJerkConstrainedSmoother::applyLateralAccelerati
   [[maybe_unused]] const double a0, [[maybe_unused]] const bool enable_smooth_limit,
   const double input_distance_interval) const
 {
-  const auto trajectory_base = trajectory.base_arange (input_distance_interval);
+  const auto trajectory_base = trajectory.base_arange(input_distance_interval);
   const auto curvature_v =
     trajectory_utils::calcTrajectoryCurvatureFrom3Points(trajectory, trajectory_base);
 

@@ -237,32 +237,20 @@ std::vector<double> calcTrajectoryCurvatureFrom3Points(
 }
 
 std::vector<double> calcTrajectoryCurvatureFrom3Points(
-  const Trajectory & trajectory, 
-  const std::vector<double> & s_values)
+  const Trajectory & trajectory, const std::vector<double> & s_values)
 {
-  using autoware_utils_geometry::calc_curvature;
-  using autoware_utils_geometry::get_point;
-
   if (s_values.size() < 3) {
     return std::vector<double>(s_values.size(), 0.0);
   }
 
-  std::vector<double> k_arr(s_values.size(), 0.0);
-
-  for (size_t i = 1; i + 1 < s_values.size(); i++) {
-    double curvature = 0.0;
-    try {
-      const auto p0 = get_point(trajectory.compute(s_values[i - 1]));
-      const auto p1 = get_point(trajectory.compute(s_values[i]));
-      const auto p2 = get_point(trajectory.compute(s_values[i + 1]));
-      curvature = calc_curvature(p0, p1, p2);
-    } catch (std::exception const & e) {
-      RCLCPP_WARN(
-        rclcpp::get_logger("autoware_velocity_smoother").get_child("trajectory_utils"), "%s",
-        e.what());
-      curvature = (i > 1) ? k_arr[i - 1] : 0.0;
-    }
-    k_arr[i] = curvature;
+  std::vector<double> k_arr;
+  try {
+    k_arr = trajectory.curvature(s_values);
+  } catch (std::exception const & e) {
+    RCLCPP_WARN(
+      rclcpp::get_logger("autoware_velocity_smoother").get_child("trajectory_utils"), "%s",
+      e.what());
+    return std::vector<double>(s_values.size(), 0.0);
   }
 
   k_arr[0] = k_arr[1];
@@ -285,15 +273,7 @@ void applyMaximumVelocityLimit(
   const double begin_distance, const double end_distance, const double max_vel,
   Trajectory & trajectory)
 {
-  // Apply velocity limit only between begin_distance and end_distance
-  const double safe_begin = std::min(begin_distance, trajectory.length() * 0.95);
-  const double safe_end = std::min(end_distance, trajectory.length() * 0.95);
-  std::vector<double> s_range = {safe_begin, safe_end};
-  std::vector<double> vel_range(2, max_vel);
-
-  if (!trajectory.longitudinal_velocity_mps().build(s_range, vel_range)) {
-    return;
-  }
+  trajectory.longitudinal_velocity_mps().range(begin_distance, end_distance).clamp(max_vel);
 }
 
 bool calcStopDistWithJerkConstraints(
@@ -309,7 +289,7 @@ bool calcStopDistWithJerkConstraints(
   jerk_profile.clear();
 
   constexpr double t_threshold = 1e-06;  // Threshold for truncating value to 0
-  constexpr double a_target = 0.0;       // [m/s^2]
+  constexpr double a_target = 0.0;       // [m/s^2] 
 
   // Calculate time interval with constant acceleration (min_acc)
   double t_min;
@@ -524,13 +504,10 @@ std::vector<double> calcVelocityProfileWithConstantJerkAndAccelerationLimit(
 }
 
 std::vector<double> calcVelocityProfileWithConstantJerkAndAccelerationLimit(
-  Trajectory & trajectory, const double v0, const double a0, const double jerk,
+  const std::vector<double> & bases, const double v0, const double a0, const double jerk,
   const double acc_max, const double acc_min)
 {
-  if (trajectory.length() == 0.0) return {};
-
-  const auto bases = trajectory.get_underlying_bases();
-  if (bases.size() < 2) return {};
+  if (bases.empty()) return {};
 
   std::vector<double> velocities;
   velocities.reserve(bases.size());
@@ -540,6 +517,10 @@ std::vector<double> calcVelocityProfileWithConstantJerkAndAccelerationLimit(
   auto curr_a = a0;
 
   for (size_t i = 1; i < bases.size(); ++i) {
+    if (bases.at(i) < bases.at(i - 1)) {
+      return {};
+    }
+
     const double interval = bases.at(i) - bases.at(i - 1);
     const auto t = interval / std::max(curr_v, 1.0e-5);
     curr_v = integ_v(curr_v, curr_a, jerk, t);
@@ -547,9 +528,6 @@ std::vector<double> calcVelocityProfileWithConstantJerkAndAccelerationLimit(
     curr_a = std::clamp(integ_a(curr_a, jerk, t), acc_min, acc_max);
   }
 
-  if (!trajectory.longitudinal_velocity_mps().build(bases, velocities)) {
-    return {};  // return empty vector on build failure
-  }
   return velocities;
 }
 
