@@ -350,17 +350,19 @@ TrajectoryExperimental SmootherBase::applyLateralAccelerationFilter(
 
   const auto [bases, velocities] = input.longitudinal_velocity_mps().get_data();
   if (bases.size() < 3) return input;
+  const double s_min = bases.front();
+  const double s_max = bases.back();
+  if (s_max <= s_min) return input;
 
   const double points_interval = use_resampling ? base_param_.sample_ds : input_points_interval;
-  const double traj_length = input.length();
 
   std::vector<double> resampled_s;
   if (use_resampling) {
-    for (double s = 0.0; s < traj_length; s += points_interval) {
+    for (double s = s_min; s < s_max; s += points_interval) {
       resampled_s.push_back(s);
     }
-    if (resampled_s.empty() || resampled_s.back() < traj_length) {
-      resampled_s.push_back(traj_length);
+    if (resampled_s.empty() || resampled_s.back() < s_max) {
+      resampled_s.push_back(s_max);
     }
   } else {
     resampled_s = bases;
@@ -370,7 +372,7 @@ TrajectoryExperimental SmootherBase::applyLateralAccelerationFilter(
   std::vector<double> resampled_v;
   resampled_v.reserve(resampled_s.size());
   for (const double s : resampled_s) {
-    resampled_v.push_back(input.longitudinal_velocity_mps().compute(std::clamp(s, 0.0, traj_length)));
+    resampled_v.push_back(input.longitudinal_velocity_mps().compute(std::clamp(s, s_min, s_max)));
   }
 
   TrajectoryExperimental eval_traj = input;
@@ -393,8 +395,8 @@ TrajectoryExperimental SmootherBase::applyLateralAccelerationFilter(
 
   for (size_t i = 0; i < resampled_s.size(); ++i) {
     const double current_s = resampled_s.at(i);
-    const double start_s = std::max(0.0, current_s - after_dist);
-    const double end_s = std::min(traj_length, current_s + before_dist);
+    const double start_s = std::max(s_min, current_s - after_dist);
+    const double end_s = std::min(s_max, current_s + before_dist);
 
     double max_curvature = 0.0;
 
@@ -417,8 +419,29 @@ TrajectoryExperimental SmootherBase::applyLateralAccelerationFilter(
   }
 
   TrajectoryExperimental result = input;
-  if (!result.longitudinal_velocity_mps().build(resampled_s, resampled_v)) {
-    return input;
+  if (use_resampling) {
+    TrajectoryExperimental filtered_eval = input;
+    if (!filtered_eval.longitudinal_velocity_mps().build(resampled_s, resampled_v)) {
+      return input;
+    }
+
+    std::vector<double> output_velocities;
+    output_velocities.reserve(bases.size());
+    for (const double base_s : bases) {
+      output_velocities.push_back(
+        filtered_eval.longitudinal_velocity_mps().compute(std::clamp(base_s, s_min, s_max)));
+    }
+    if (!output_velocities.empty()) {
+      output_velocities.back() = velocities.back();
+    }
+
+    if (!result.longitudinal_velocity_mps().build(bases, output_velocities)) {
+      return input;
+    }
+  } else {
+    if (!result.longitudinal_velocity_mps().build(bases, resampled_v)) {
+      return input;
+    }
   }
 
   return result;

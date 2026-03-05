@@ -384,7 +384,7 @@ bool JerkFilteredSmoother::apply(
   }
   output = input;
 
-  if (bases.size() < 3) {
+  if (bases.size() == 1) {
     output.longitudinal_velocity_mps().range(bases[0], bases[0]).set(v0);
     output.acceleration_mps2().range(bases[0], bases[0]).set(a0);
     if (publish_debug_trajs) {
@@ -839,22 +839,74 @@ TrajectoryExperimental JerkFilteredSmoother::backwardJerkFilter(
   const TrajectoryExperimental & input) const
 {
   autoware_utils_debug::ScopedTimeTrack st(__func__, *time_keeper_);
-  TrajectoryPoints discrete;
-  try {
-    discrete = input.restore();
-  } catch (const std::exception & e) {
-    RCLCPP_WARN(logger_, "backwardJerkFilter restore failed: %s", e.what());
+  const auto [bases, velocities] = input.longitudinal_velocity_mps().get_data();
+  const auto [acc_bases, accelerations] = input.acceleration_mps2().get_data();
+  if (bases.empty() || bases.size() != velocities.size()) {
     return input;
   }
 
-  if (discrete.empty()) {
+  for (size_t i = 1; i < bases.size(); ++i) {
+    if (bases.at(i) <= bases.at(i - 1)) {
+      return input;
+    }
+  }
+
+  const double s_min = bases.front();
+  const double s_max = bases.back();
+  if (!std::isfinite(s_min) || !std::isfinite(s_max) || s_max <= s_min) return input;
+
+  std::vector<double> reversed_bases = bases;
+  std::vector<double> reversed_velocities = velocities;
+  std::reverse(reversed_bases.begin(), reversed_bases.end());
+  std::reverse(reversed_velocities.begin(), reversed_velocities.end());
+  for (double & s : reversed_bases) {
+    s = (s_max + s_min) - s;
+  }
+
+  std::vector<double> reversed_accelerations(reversed_bases.size(), 0.0);
+  if (acc_bases.size() == bases.size() && accelerations.size() == bases.size()) {
+    reversed_accelerations = accelerations;
+    std::reverse(reversed_accelerations.begin(), reversed_accelerations.end());
+    for (double & a : reversed_accelerations) {
+      a = -a;
+    }
+  }
+
+  TrajectoryExperimental reversed_input = input;
+  if (!reversed_input.longitudinal_velocity_mps().build(reversed_bases, reversed_velocities)) {
     return input;
   }
-  const auto filtered = backwardJerkFilter(
-    v0, a0, a_min, a_stop, j_min, discrete);
-  TrajectoryExperimental output;
-  if (!output.build(filtered)) {
-    return input;  // Return input trajectory on build failure
+  if (!reversed_input.acceleration_mps2().build(reversed_bases, reversed_accelerations)) {
+    return input;
+  }
+
+  const auto reversed_filtered = forwardJerkFilter(
+    v0, std::fabs(a0), std::fabs(a_min), std::fabs(a_stop), std::fabs(j_min), reversed_input);
+
+  const auto reversed_data = reversed_filtered.longitudinal_velocity_mps().get_data();
+  const auto & rev_bases = reversed_data.first;
+  if (rev_bases.empty()) {
+    return input;
+  }
+  const double rev_min = rev_bases.front();
+  const double rev_max = rev_bases.back();
+
+  std::vector<double> filtered_velocities;
+  std::vector<double> filtered_accelerations;
+  filtered_velocities.reserve(bases.size());
+  filtered_accelerations.reserve(bases.size());
+  for (const double base : bases) {
+    const double mirrored_s = std::clamp((s_max + s_min) - base, rev_min, rev_max);
+    filtered_velocities.push_back(reversed_filtered.longitudinal_velocity_mps().compute(mirrored_s));
+    filtered_accelerations.push_back(-reversed_filtered.acceleration_mps2().compute(mirrored_s));
+  }
+
+  TrajectoryExperimental output = input;
+  if (!output.longitudinal_velocity_mps().build(bases, filtered_velocities)) {
+    return input;
+  }
+  if (!output.acceleration_mps2().build(bases, filtered_accelerations)) {
+    return input;
   }
   return output;
 }

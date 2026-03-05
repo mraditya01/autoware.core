@@ -77,7 +77,8 @@ bool applyMaxVelocity(
     return false;
   }
 
-  trajectory.longitudinal_velocity_mps().range(start_distance, end_distance).set(max_velocity);
+  trajectory.longitudinal_velocity_mps().range(start_distance, end_distance).clamp(max_velocity);
+  trajectory.acceleration_mps2().range(start_distance, end_distance).set(0.0);
 
   return true;
 }

@@ -56,6 +56,7 @@ if(BUILD_TESTING)
   )
   ament_add_ros_isolated_gmock(test_smoother_functions
   test/test_resample.cpp
+  test/test_smoother_functions.cpp
   )
   target_link_libraries(test_smoother_functions
   smoother
