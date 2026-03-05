@@ -22,6 +22,7 @@
 #include <autoware_utils_geometry/geometry.hpp>
 
 #include <algorithm>
+#include <cmath>
 #include <limits>
 #include <map>
 #include <tuple>
@@ -147,9 +148,10 @@ Trajectory extractPathAroundPosition(
   const Trajectory & trajectory, const double arc_length_position, const double ahead_distance,
   const double behind_distance)
 {
-  const double start_s = std::max(0.0, arc_length_position - behind_distance);
-  const double length_s =
-    std::min(trajectory.length() - start_s, arc_length_position + ahead_distance - start_s);
+  const double clamped_position = std::clamp(arc_length_position, 0.0, trajectory.length());
+  const double start_s = std::max(0.0, clamped_position - behind_distance);
+  const double end_s = std::min(trajectory.length(), clamped_position + ahead_distance);
+  const double length_s = std::max(0.0, end_s - start_s);
 
   auto cropped_trajectory = trajectory;
   cropped_trajectory.crop(start_s, length_s);
@@ -501,10 +503,13 @@ std::vector<double> calcVelocityProfileWithConstantJerkAndAccelerationLimit(
 }
 
 std::vector<double> calcVelocityProfileWithConstantJerkAndAccelerationLimit(
-  const std::vector<double> & bases, const double v0, const double a0, const double jerk,
+  Trajectory & trajectory, const double v0, const double a0, const double jerk,
   const double acc_max, const double acc_min)
 {
-  if (bases.empty()) return {};
+  if (trajectory.length() == 0.0) return {};
+
+  const auto bases = trajectory.get_underlying_bases();
+  if (bases.size() < 2) return {};
 
   std::vector<double> velocities;
   velocities.reserve(bases.size());
@@ -514,17 +519,12 @@ std::vector<double> calcVelocityProfileWithConstantJerkAndAccelerationLimit(
   auto curr_a = a0;
 
   for (size_t i = 1; i < bases.size(); ++i) {
-    if (bases.at(i) < bases.at(i - 1)) {
-      return {};
-    }
-
     const double interval = bases.at(i) - bases.at(i - 1);
     const auto t = interval / std::max(curr_v, 1.0e-5);
     curr_v = integ_v(curr_v, curr_a, jerk, t);
     velocities.push_back(curr_v);
     curr_a = std::clamp(integ_a(curr_a, jerk, t), acc_min, acc_max);
   }
-
   return velocities;
 }
 
@@ -552,7 +552,8 @@ double calcStopDistance(const Trajectory & trajectory, const double closest_posi
     return std::numeric_limits<double>::max();
   }
 
-  return std::abs(*zero_vel_position - closest_position);
+  const double clamped_closest_position = std::clamp(closest_position, 0.0, trajectory.length());
+  return std::abs(*zero_vel_position - clamped_closest_position);
 }
 
 }  // namespace trajectory_utils

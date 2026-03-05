@@ -52,8 +52,10 @@ std::vector<double> calcTrajectoryIntervalDistance(const TrajectoryPoints & traj
 std::vector<double> calcTrajectoryCurvatureFrom3Points(
   const TrajectoryPoints & trajectory, size_t idx_dist);
 
+
 std::vector<double> calcTrajectoryCurvatureFrom3Points(
-  const Trajectory & trajectory, const std::vector<double> & s_values);
+  const Trajectory & trajectory, 
+  const std::vector<double> & s_values);
 
 void applyMaximumVelocityLimit(
   const size_t from, const size_t to, const double max_vel, TrajectoryPoints & trajectory);
@@ -79,7 +81,7 @@ std::vector<double> calcVelocityProfileWithConstantJerkAndAccelerationLimit(
   const double acc_max, const double acc_min);
 
 std::vector<double> calcVelocityProfileWithConstantJerkAndAccelerationLimit(
-  const std::vector<double> & bases, const double v0, const double a0, const double jerk,
+  Trajectory & trajectory, const double v0, const double a0, const double jerk,
   const double acc_max, const double acc_min);
 
 double calcStopDistance(const TrajectoryPoints & trajectory, const size_t closest);
