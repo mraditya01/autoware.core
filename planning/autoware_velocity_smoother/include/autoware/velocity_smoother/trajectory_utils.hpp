@@ -52,10 +52,8 @@ std::vector<double> calcTrajectoryIntervalDistance(const TrajectoryPoints & traj
 std::vector<double> calcTrajectoryCurvatureFrom3Points(
   const TrajectoryPoints & trajectory, size_t idx_dist);
 
-
 std::vector<double> calcTrajectoryCurvatureFrom3Points(
-  const Trajectory & trajectory, 
-  const std::vector<double> & s_values);
+  const Trajectory & trajectory, const std::vector<double> & s_values);
 
 void applyMaximumVelocityLimit(
   const size_t from, const size_t to, const double max_vel, TrajectoryPoints & trajectory);

@@ -253,9 +253,6 @@ std::vector<double> calcTrajectoryCurvatureFrom3Points(
     return std::vector<double>(s_values.size(), 0.0);
   }
 
-  k_arr[0] = k_arr[1];
-  k_arr.back() = k_arr[k_arr.size() - 2];
-
   return k_arr;
 }
 
@@ -289,7 +286,7 @@ bool calcStopDistWithJerkConstraints(
   jerk_profile.clear();
 
   constexpr double t_threshold = 1e-06;  // Threshold for truncating value to 0
-  constexpr double a_target = 0.0;       // [m/s^2] 
+  constexpr double a_target = 0.0;       // [m/s^2]
 
   // Calculate time interval with constant acceleration (min_acc)
   double t_min;
