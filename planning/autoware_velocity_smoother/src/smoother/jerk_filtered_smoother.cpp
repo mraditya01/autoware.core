@@ -419,15 +419,15 @@ bool JerkFilteredSmoother::apply(
 
   // Resample merged trajectory first to reduce number of points before optimization
   // guard against restore failure or empty result
-  decltype(merged.restore()) merged_discrete;
+  if (merged.length() < 1e-6) {
+    RCLCPP_WARN(logger_, "merged trajectory too short, aborting");
+    return false;
+  }
+  TrajectoryPoints merged_discrete;
   try {
     merged_discrete = merged.restore();
   } catch (const std::exception & e) {
     RCLCPP_WARN(logger_, "merged.restore() failed: %s", e.what());
-    return false;
-  }
-  if (merged_discrete.empty()) {
-    RCLCPP_WARN(logger_, "merged.restore() produced empty trajectory");
     return false;
   }
   const auto initial_traj_pose = merged_discrete.front().pose;
@@ -614,6 +614,10 @@ bool JerkFilteredSmoother::apply(
 
   if (VERBOSE_TRAJECTORY_VELOCITY) {
     std::vector<autoware_planning_msgs::msg::TrajectoryPoint> discrete_output;
+    if (output.length() < 1e-6) {
+      RCLCPP_WARN(logger_, "merged trajectory too short, aborting");
+      return false;
+    }
     try {
       discrete_output = output.restore();
     } catch (const std::exception & e) {
