@@ -253,7 +253,7 @@ std::vector<PointType> Trajectory<PointType>::restore(const size_t min_points) c
         sanitized_bases.push_back(s);
       }
     }
-    if (points.size() >= min_points) {
+    if (points.size() >= min_points || sanitized_bases.size() < 2) {
       return points;
     }
   }
