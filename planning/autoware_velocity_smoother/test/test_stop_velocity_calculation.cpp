@@ -321,6 +321,29 @@ TEST_F(StopVelocityCalculationTest, AccelerationBounds)
   }
 }
 
+TEST_F(StopVelocityCalculationTest, EmptyXsContinuousPreservesPrefixProfile)
+{
+  auto trajectory = createStraightTrajectoryContinuous(20, 1.0);
+  trajectory.longitudinal_velocity_mps().range(0.0, trajectory.length()).set(5.0);
+  trajectory.acceleration_mps2().range(0.0, trajectory.length()).set(-1.0);
+
+  constexpr double test_start_distance = 5.0;
+  constexpr double test_decel_target_vel = 1.0;
+
+  ASSERT_TRUE(calcStopVelocityWithConstantJerkAccLimit(
+    test_decel_target_vel, 0.0, 0.0, -1.0, min_acc, test_decel_target_vel, 3, {0.0},
+    test_start_distance, trajectory));
+
+  EXPECT_DOUBLE_EQ(trajectory.compute(0.0).longitudinal_velocity_mps, 5.0);
+  EXPECT_DOUBLE_EQ(trajectory.compute(0.0).acceleration_mps2, -1.0);
+  EXPECT_DOUBLE_EQ(
+    trajectory.compute(test_start_distance).longitudinal_velocity_mps, test_decel_target_vel);
+  EXPECT_DOUBLE_EQ(trajectory.compute(test_start_distance).acceleration_mps2, 0.0);
+  EXPECT_DOUBLE_EQ(
+    trajectory.compute(trajectory.length()).longitudinal_velocity_mps, test_decel_target_vel);
+  EXPECT_DOUBLE_EQ(trajectory.compute(trajectory.length()).acceleration_mps2, 0.0);
+}
+
 int main(int argc, char ** argv)
 {
   testing::InitGoogleTest(&argc, argv);
