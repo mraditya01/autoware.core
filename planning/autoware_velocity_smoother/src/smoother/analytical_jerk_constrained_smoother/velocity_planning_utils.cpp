@@ -20,6 +20,7 @@
 
 #include <algorithm>
 #include <numeric>
+#include <utility>
 #include <vector>
 
 namespace autoware::velocity_smoother
@@ -218,8 +219,9 @@ bool calcStopVelocityWithConstantJerkAccLimit(
   const double trajectory_length = output_trajectory.length();
   const double start_s = std::clamp(start_distance, 0.0, trajectory_length);
   if (xs.empty()) {
-    output_trajectory.longitudinal_velocity_mps().range(start_s, trajectory_length).set(
-      decel_target_vel);
+    output_trajectory.longitudinal_velocity_mps()
+      .range(start_s, trajectory_length)
+      .set(decel_target_vel);
     output_trajectory.acceleration_mps2().range(start_s, trajectory_length).set(0.0);
     return true;
   }
@@ -251,8 +253,9 @@ bool calcStopVelocityWithConstantJerkAccLimit(
   }
 
   if (s_range.empty()) {
-    output_trajectory.longitudinal_velocity_mps().range(start_s, trajectory_length).set(
-      decel_target_vel);
+    output_trajectory.longitudinal_velocity_mps()
+      .range(start_s, trajectory_length)
+      .set(decel_target_vel);
     output_trajectory.acceleration_mps2().range(start_s, trajectory_length).set(0.0);
     return true;
   }
@@ -269,8 +272,8 @@ bool calcStopVelocityWithConstantJerkAccLimit(
     acc_range.push_back(0.0);
   }
 
-  const auto merge_profile =
-  [&s_range, start_s](const auto & profile, const std::vector<double> & new_values) {
+  const auto merge_profile = [&s_range, start_s](
+                               const auto & profile, const std::vector<double> & new_values) {
     const auto [orig_bases, orig_values] = profile.get_data();
 
     std::vector<double> merged_bases;
@@ -359,7 +362,7 @@ bool calcStopVelocityWithConstantJerkAccLimit(
 
   if (xs.empty()) {
     for (size_t i = start_index; i < output_trajectory.size(); ++i) {
-      output_trajectory.at(i).longitudinal_velocity_mps = decel_target_vel;
+      output_trajectory.at(i).longitudinal_velocity_mps = static_cast<float>(decel_target_vel);
       output_trajectory.at(i).acceleration_mps2 = 0.0;
     }
     return true;
@@ -396,11 +399,12 @@ bool calcStopVelocityWithConstantJerkAccLimit(
   const auto jerk_at_wp = autoware::interpolation::lerp(xs, js, distances);
 
   for (size_t i = 0; i < vel_at_wp.size(); ++i) {
-    output_trajectory.at(start_index + i).longitudinal_velocity_mps = vel_at_wp.at(i);
-    output_trajectory.at(start_index + i).acceleration_mps2 = acc_at_wp.at(i);
+    output_trajectory.at(start_index + i).longitudinal_velocity_mps =
+      static_cast<float>(vel_at_wp.at(i));
+    output_trajectory.at(start_index + i).acceleration_mps2 = static_cast<float>(acc_at_wp.at(i));
   }
   for (size_t i = start_index + vel_at_wp.size(); i < output_trajectory.size(); ++i) {
-    output_trajectory.at(i).longitudinal_velocity_mps = decel_target_vel;
+    output_trajectory.at(i).longitudinal_velocity_mps = static_cast<float>(decel_target_vel);
     output_trajectory.at(i).acceleration_mps2 = 0.0;
   }
 

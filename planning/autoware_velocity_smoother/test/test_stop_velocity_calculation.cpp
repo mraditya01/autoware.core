@@ -343,7 +343,6 @@ TEST_F(StopVelocityCalculationTest, EmptyXsContinuousPreservesPrefixProfile)
     trajectory.compute(trajectory.length()).longitudinal_velocity_mps, test_decel_target_vel);
   EXPECT_DOUBLE_EQ(trajectory.compute(trajectory.length()).acceleration_mps2, 0.0);
 }
-
 int main(int argc, char ** argv)
 {
   testing::InitGoogleTest(&argc, argv);
