@@ -20,6 +20,7 @@
 
 #include <algorithm>
 #include <numeric>
+#include <utility>
 #include <vector>
 
 namespace autoware::velocity_smoother
@@ -218,8 +219,9 @@ bool calcStopVelocityWithConstantJerkAccLimit(
   const double trajectory_length = output_trajectory.length();
   const double start_s = std::clamp(start_distance, 0.0, trajectory_length);
   if (xs.empty()) {
-    output_trajectory.longitudinal_velocity_mps().range(start_s, trajectory_length).set(
-      decel_target_vel);
+    output_trajectory.longitudinal_velocity_mps()
+      .range(start_s, trajectory_length)
+      .set(decel_target_vel);
     output_trajectory.acceleration_mps2().range(start_s, trajectory_length).set(0.0);
     return true;
   }
@@ -251,8 +253,9 @@ bool calcStopVelocityWithConstantJerkAccLimit(
   }
 
   if (s_range.empty()) {
-    output_trajectory.longitudinal_velocity_mps().range(start_s, trajectory_length).set(
-      decel_target_vel);
+    output_trajectory.longitudinal_velocity_mps()
+      .range(start_s, trajectory_length)
+      .set(decel_target_vel);
     output_trajectory.acceleration_mps2().range(start_s, trajectory_length).set(0.0);
     return true;
   }
@@ -269,8 +272,8 @@ bool calcStopVelocityWithConstantJerkAccLimit(
     acc_range.push_back(0.0);
   }
 
-  const auto merge_profile =
-  [&s_range, start_s](const auto & profile, const std::vector<double> & new_values) {
+  const auto merge_profile = [&s_range, start_s](
+                               const auto & profile, const std::vector<double> & new_values) {
     const auto [orig_bases, orig_values] = profile.get_data();
 
     std::vector<double> merged_bases;
