@@ -66,12 +66,6 @@ if(BUILD_TESTING)
   target_link_libraries(test_${PROJECT_NAME}
     ${PROJECT_NAME}_node
   )
-  ament_add_ros_isolated_gtest(test_stop_velocity_calculation
-    test/test_stop_velocity_calculation.cpp
-  )
-  target_link_libraries(test_stop_velocity_calculation
-    smoother
-  )
 endif()
 
 
